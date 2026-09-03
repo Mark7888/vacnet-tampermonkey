@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        CS2 VACnet Labeling Portal Enhancer
 // @namespace   https://github.com/Mark7888/vacnet-tampermonkey
-// @version     1.0.0-edge.20260903.1647
+// @version     1.0.0-edge.20260903.1927
 // @description Full clip playback, keyboard controls, resizable panels and other usability tweaks for the CS2 VACnet video labeling portal.
 // @author      Mark7888
 // @homepageURL https://github.com/Mark7888/vacnet-tampermonkey
@@ -14,7 +14,7 @@
 // @run-at      document-start
 // @noframes
 // ==/UserScript==
-// build: edge channel, commit c5a8b5a7460962715e8574bd13f021fbc1e8a70c, 2026-09-03T16:47:29.672Z
+// build: edge channel, commit b897c2e405518cc25395e4807cd2a622093ef9ee, 2026-09-03T19:27:42.307Z
 
 (function () {
 'use strict';
@@ -517,18 +517,19 @@ html.vnh-expert .submitbuttons button:active { filter: brightness(0.94) !importa
 
 /*
  * The portal writes its own status line ("Submitting...", "Labels Submitted")
- * into the status container. Expert view keeps that element and its text as the
- * portal made it and hangs the icon off a pseudo-element instead, so nothing we
- * add can get in the way of the portal rewriting it.
+ * into the status container, as a <p>. Expert view keeps that element and its
+ * text exactly as the portal made it and hangs the icon off the paragraph's
+ * ::before, so nothing we add can get in the way of the portal rewriting it -
+ * and the icon shares a line with the text whatever the paragraph's display is.
  */
-html.vnh-status-busy .status-text-container::before,
-html.vnh-status-done .status-text-container::before {
+html.vnh-status-busy .status-text-container p::before,
+html.vnh-status-done .status-text-container p::before {
 	display: inline-block;
 	margin-right: 8px;
-	vertical-align: -1px;
+	vertical-align: middle;
 }
 
-html.vnh-status-busy .status-text-container::before {
+html.vnh-status-busy .status-text-container p::before {
 	content: '';
 	box-sizing: border-box;
 	width: 11px;
@@ -539,10 +540,11 @@ html.vnh-status-busy .status-text-container::before {
 	animation: vnh-spin 0.7s linear infinite;
 }
 
-html.vnh-status-done .status-text-container::before {
+html.vnh-status-done .status-text-container p::before {
 	content: '✓';
 	color: #7cba62;
 	font-weight: 700;
+	vertical-align: baseline;
 }
 
 html.vnh-status-busy .status-text-container { animation: vnh-status-in 0.2s ease both; }
@@ -728,6 +730,8 @@ html.vnh-status-done .status-text-container { animation: vnh-status-pop 0.22s ea
   };
   var ROW_HEIGHT = "28px";
   var STATUS_SPACE = "22px";
+  var SUBMIT_WIDTH = "196px";
+  var PANEL_INSET = "22px";
   var PRIMARY_BUTTON = {
     "box-sizing": "border-box",
     margin: "0",
@@ -811,11 +815,14 @@ html.vnh-status-done .status-text-container { animation: vnh-status-pop 0.22s ea
       const look = CHOICES[choice];
       style(button, {
         position: "relative",
-        // Sized by its own word, not an equal third: "Uncertain" needs more
-        // room than "Yes", and squeezing it makes the row overlap when the
-        // column gets narrow.
-        flex: "1 1 auto",
-        "min-width": "0",
+        "box-sizing": "border-box",
+        // Equal thirds, but never narrower than the word inside: "Uncertain"
+        // is the widest of the three and overlaps its neighbours if the
+        // column gets narrow enough to squeeze it.
+        flex: "1 1 0",
+        "min-width": "fit-content",
+        "max-width": "none",
+        float: "none",
         margin: "0",
         padding: "0"
       });
@@ -858,10 +865,18 @@ html.vnh-status-done .status-text-container { animation: vnh-status-pop 0.22s ea
     const buttons = block.querySelector(".verdictbuttons");
     if (!buttons) return;
     style(block, {
+      "box-sizing": "border-box",
       display: "flex",
       "flex-direction": "column",
+      "align-self": "start",
+      float: "none",
       gap: "6px",
+      width: "auto",
       "min-width": "0",
+      "max-width": "none",
+      height: "auto",
+      "min-height": "0",
+      "max-height": "none",
       margin: "0",
       padding: "0"
     });
@@ -872,8 +887,13 @@ html.vnh-status-done .status-text-container { animation: vnh-status-pop 0.22s ea
       if (title) text(desc, title);
       style(desc, {
         display: "block",
+        float: "none",
         overflow: "hidden",
+        width: "auto",
+        "min-width": "0",
+        "max-width": "none",
         margin: "0",
+        padding: "0",
         color: "var(--vnh-text, #c6d4df)",
         "font-size": "11px",
         "font-weight": "700",
@@ -886,13 +906,20 @@ html.vnh-status-done .status-text-container { animation: vnh-status-pop 0.22s ea
       });
     }
     style(buttons, {
+      position: "static",
+      "box-sizing": "border-box",
       display: "flex",
       "flex-wrap": "nowrap",
       "justify-content": "center",
       "align-items": "stretch",
+      float: "none",
       gap: "4px",
+      width: "auto",
+      "min-width": "0",
+      "max-width": "none",
       height: ROW_HEIGHT,
       "min-height": ROW_HEIGHT,
+      "max-height": ROW_HEIGHT,
       margin: "0",
       padding: "0"
     });
@@ -907,59 +934,75 @@ html.vnh-status-done .status-text-container { animation: vnh-status-pop 0.22s ea
     return "plain";
   }
   function decorateSubmit() {
-    const container = document.querySelector(".verdicts-container");
     const inner = document.querySelector(".verdicts-container-inner");
-    const submit = document.querySelector("#submitbuttons, .submitbuttons");
-    const status = document.querySelector("#statustext, .status-text-container");
+    const container = inner?.closest(".verdicts-container") ?? document.querySelector(".verdicts-container");
+    const scope = container ?? document;
+    const submit = scope.querySelector("#submitbuttons, .submitbuttons");
+    const status = scope.querySelector("#statustext, .status-text-container");
+    const contentTop = "14px";
+    const contentBottom = `calc(12px + ${STATUS_SPACE})`;
     if (container) {
       style(container, {
         position: "relative",
         "box-sizing": "border-box",
-        display: "flex",
-        "flex-wrap": "wrap",
-        "align-items": "center",
-        gap: "10px 22px",
+        display: "block",
+        float: "none",
         width: "100%",
+        "min-width": "0",
+        "max-width": "none",
         height: "auto",
         "min-height": "0",
         "max-height": "none",
         margin: "0",
-        // Room at the bottom for the status line, which is taken out of the
-        // flow below so the panel keeps its size when the portal fills it in.
-        padding: `14px 22px calc(12px + ${STATUS_SPACE})`
+        padding: `${contentTop} calc(${SUBMIT_WIDTH} + ${PANEL_INSET} + ${PANEL_INSET}) ${contentBottom} ${PANEL_INSET}`
       });
     }
     if (inner) {
       style(inner, {
+        // A block-level grid: it fills the space the padding leaves, whatever
+        // the portal's stylesheet would rather it did.
         display: "grid",
-        "grid-template-columns": "repeat(auto-fit, minmax(150px, 1fr))",
+        "box-sizing": "border-box",
+        "grid-template-columns": "repeat(auto-fit, minmax(168px, 1fr))",
+        "grid-template-rows": "none",
+        "grid-auto-rows": "min-content",
+        "align-content": "start",
         "align-items": "start",
-        flex: "1 1 380px",
+        "justify-items": "stretch",
+        float: "none",
         gap: "10px 20px",
         width: "auto",
-        height: "auto",
         "min-width": "0",
+        "max-width": "none",
+        height: "auto",
         "min-height": "0",
+        "max-height": "none",
         margin: "0",
         padding: "0"
       });
     }
     if (submit) {
       style(submit, {
+        // Out of the flow, so hiding the buttons mid-submit moves nothing.
+        position: "absolute",
+        top: contentTop,
+        bottom: contentBottom,
+        right: PANEL_INSET,
+        left: "auto",
+        "box-sizing": "border-box",
         display: "flex",
         "flex-wrap": "nowrap",
         "justify-content": "center",
         "align-items": "center",
-        flex: "0 0 auto",
+        float: "none",
         gap: "8px",
-        // Wide enough for Back + Confirm, so Proceed alone sits in the same
-        // place and the row does not reshuffle when the portal swaps them.
-        "min-width": "196px",
-        // Stays on the right even on a panel too narrow to keep it in the row.
-        margin: "0 0 0 auto",
-        padding: "0",
+        width: SUBMIT_WIDTH,
+        "min-width": "0",
+        "max-width": "none",
+        margin: "0",
+        padding: `0 0 0 ${PANEL_INSET}`,
         "border-left": "1px solid rgba(198, 212, 223, 0.14)",
-        "padding-left": "22px"
+        "text-align": "center"
       });
       for (const button of Array.from(submit.querySelectorAll("button"))) {
         style(button, button.classList.contains("backbutton") ? GHOST_BUTTON : PRIMARY_BUTTON);
@@ -968,20 +1011,36 @@ html.vnh-status-done .status-text-container { animation: vnh-status-pop 0.22s ea
     if (status) {
       style(status, {
         position: "absolute",
-        left: "22px",
-        right: "22px",
+        left: "50%",
+        right: "auto",
         bottom: "8px",
+        transform: "translateX(-50%)",
+        "box-sizing": "border-box",
+        float: "none",
+        width: "max-content",
+        "min-width": "0",
+        "max-width": `calc(100% - ${PANEL_INSET} - ${PANEL_INSET})`,
         height: STATUS_SPACE,
         margin: "0",
-        padding: "0",
+        padding: "0 12px",
         color: "var(--vnh-text-dim, #8fa0ad)",
         "font-size": "12px",
         "line-height": STATUS_SPACE,
         "letter-spacing": "0.04em",
-        "text-align": "center"
+        "text-align": "center",
+        "white-space": "nowrap",
+        overflow: "hidden",
+        "text-overflow": "ellipsis"
       });
       for (const line of Array.from(status.querySelectorAll("p"))) {
-        style(line, { display: "inline", margin: "0", padding: "0", font: "inherit", color: "inherit" });
+        style(line, {
+          display: "inline",
+          margin: "0",
+          padding: "0",
+          font: "inherit",
+          color: "inherit",
+          background: "none"
+        });
       }
       setStatusState(statusState(status));
     } else {
