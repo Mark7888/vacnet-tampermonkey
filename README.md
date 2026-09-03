@@ -13,5 +13,5 @@ For the stable build, use the
 
 | | |
 | --- | --- |
-| Version | `1.0.0-edge.20260903.2000` |
-| Built from | [`9873cf419703902920781db7fb334fc7a589dcd9`](https://github.com/Mark7888/vacnet-tampermonkey/commit/9873cf419703902920781db7fb334fc7a589dcd9) |
+| Version | `1.0.0-edge.20260903.2002` |
+| Built from | [`758942efda16f91ad99b09d6f8b2eca2972eef62`](https://github.com/Mark7888/vacnet-tampermonkey/commit/758942efda16f91ad99b09d6f8b2eca2972eef62) |
