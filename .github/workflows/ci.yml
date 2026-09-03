@@ -29,13 +29,13 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           # Keeps the job's token out of .git/config, so a compromised
           # dependency lifecycle script cannot pick it up and push with it.
           persist-credentials: false
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -51,10 +51,14 @@ jobs:
       # is not exactly what this channel is supposed to publish.
       - run: npm run verify
 
+      # actions/dependency-review-action would add licence and advisory
+      # gating on the PR diff, but it needs Advanced Security, which this
+      # private repository does not have. `npm audit` plus Dependabot cover
+      # the same advisories for the three dev-dependencies here.
       - name: Audit dependencies
         run: npm audit --audit-level=high
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: vacnet-enhancer-userscript
           path: |
@@ -69,11 +73,11 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           persist-credentials: false
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -85,20 +89,3 @@ jobs:
       - run: npm run build
 
       - run: npm test
-
-  dependency-review:
-    name: Dependency review
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-
-      # Blocks a PR that pulls in a dependency with a known high-severity
-      # advisory or an incompatible licence.
-      - uses: actions/dependency-review-action@v4
-        with:
-          fail-on-severity: high

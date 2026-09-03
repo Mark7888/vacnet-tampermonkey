@@ -64,6 +64,12 @@ the <kbd>ö</kbd> next to <kbd>9</kbd> stays out of the way.
 
 ## Install
 
+> **Both install links need this repository to be public.**
+> `raw.githubusercontent.com` and release asset URLs are access-controlled, and
+> Tampermonkey cannot authenticate to them, so while the repository is private
+> the links below return 404 for everyone. Either make the repository public, or
+> mirror the build to a public Gist and point the channel at that instead.
+
 Install [Tampermonkey](https://www.tampermonkey.net/) first, then pick a channel
 — opening either link shows Tampermonkey's install prompt, and it keeps that
 copy up to date from the same URL afterwards.
