@@ -10,9 +10,8 @@ const FRAME = 1 / 60;
 
 export interface KeyboardActions {
 	toggleFullContext(): void;
-	toggleInfo(): void;
+	toggleExpertView(): void;
 	copyClipLink(): void;
-	resetLayout(): void;
 	toggleHelp(): void;
 	/** Returns true when a help overlay was open and got closed. */
 	closeHelp(): boolean;
@@ -106,7 +105,8 @@ export function installKeyboard(actions: KeyboardActions): void {
 			event.preventDefault();
 			return;
 		}
-		if (event.repeat && (event.key === 'c' || event.key === 'h' || event.key === 'r')) return;
+		// toggles should not machine-gun when a key is held down
+		if (event.repeat && (event.key === 'c' || event.key === 'e')) return;
 		if (shouldIgnore(event)) return;
 
 		const media = getMedia();
@@ -172,14 +172,11 @@ export function installKeyboard(actions: KeyboardActions): void {
 			case 'KeyC':
 				actions.toggleFullContext();
 				break;
-			case 'KeyH':
-				actions.toggleInfo();
+			case 'KeyE':
+				actions.toggleExpertView();
 				break;
 			case 'KeyY':
 				actions.copyClipLink();
-				break;
-			case 'KeyR':
-				actions.resetLayout();
 				break;
 			case 'Slash':
 			case 'NumpadDivide':

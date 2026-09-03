@@ -32,9 +32,8 @@ export const SHORTCUTS: ShortcutSection[] = [
 		title: 'Portal',
 		items: [
 			['C', 'Toggle "View full context"'],
+			['E', 'Toggle expert view'],
 			['Y', 'Copy clip link'],
-			['H', 'Hide / show the info row'],
-			['R', 'Reset the panel layout'],
 			['?', 'Show / hide this list'],
 			['Esc', 'Close this list'],
 		],

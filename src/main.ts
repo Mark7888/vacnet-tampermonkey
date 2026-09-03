@@ -10,8 +10,8 @@ import { installKeyboard } from './keyboard';
 import { getClipPageUrl, getClipVideoUrl } from './player';
 import { getSettings, loadSettings, updateSettings } from './settings';
 import { applyAccentFromPage, injectStyles } from './styles';
+import { applyExpertView } from './ui/expert';
 import { closeHelp, toggleHelp } from './ui/help';
-import { installLayout } from './ui/layout';
 import { installToolbar } from './ui/toolbar';
 import { toast } from './ui/toast';
 import { copyText, log, onReady } from './util';
@@ -29,12 +29,10 @@ onReady(() => {
 	injectStyles();
 	applyAccentFromPage();
 
-	const layout = installLayout();
-
-	const setInfoHidden = (value: boolean): void => {
-		updateSettings({ infoHidden: value });
-		document.documentElement.classList.toggle('vnh-hide-info', value);
-		toolbar?.syncInfoHidden(value);
+	const setExpertView = (value: boolean): void => {
+		updateSettings({ expertView: value });
+		applyExpertView(value);
+		toolbar?.syncExpertView(value);
 	};
 
 	const setFullContext = (value: boolean, notify = true): void => {
@@ -66,28 +64,21 @@ onReady(() => {
 		});
 	};
 
-	const resetLayout = (): void => {
-		layout.reset();
-		toast('Layout reset');
-	};
-
 	const toolbar = installToolbar({
 		onToggleFullContext: (next) => setFullContext(next),
 		onCopyLink: copyClipLink,
-		onToggleInfo: () => setInfoHidden(!getSettings().infoHidden),
-		onResetLayout: resetLayout,
+		onToggleExpert: () => setExpertView(!getSettings().expertView),
 		onHelp: toggleHelp,
 	});
 
 	// Push the stored preferences into the freshly built UI.
 	setFullContext(getSettings().fullContext, false);
-	setInfoHidden(getSettings().infoHidden);
+	setExpertView(getSettings().expertView);
 
 	installKeyboard({
 		toggleFullContext: () => setFullContext(!getSettings().fullContext),
-		toggleInfo: () => setInfoHidden(!getSettings().infoHidden),
+		toggleExpertView: () => setExpertView(!getSettings().expertView),
 		copyClipLink: () => copyClipLink(false),
-		resetLayout,
 		toggleHelp,
 		closeHelp,
 	});

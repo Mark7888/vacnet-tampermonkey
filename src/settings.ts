@@ -3,21 +3,18 @@
 export interface Settings {
 	/** Disables the portal's "snap back into the 10 second window" timer. */
 	fullContext: boolean;
-	/** Hides the instructions row and the portal logo block. */
-	infoHidden: boolean;
-	/** Width of the video column as a fraction of the row (null = site default). */
-	splitRatio: number | null;
-	/** Explicit player height in px (null = site default). */
-	videoHeight: number | null;
+	/**
+	 * Distraction-free mode: hides the page header, the footer, the instructions
+	 * row and the portal logo, and stacks the verdicts under a wide player.
+	 */
+	expertView: boolean;
 }
 
 const STORAGE_KEY = 'vacnetEnhancer.settings.v1';
 
 const DEFAULTS: Settings = {
 	fullContext: false,
-	infoHidden: false,
-	splitRatio: null,
-	videoHeight: null,
+	expertView: false,
 };
 
 let current: Settings = { ...DEFAULTS };

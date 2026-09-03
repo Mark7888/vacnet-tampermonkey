@@ -8,14 +8,13 @@ export interface ToolbarCallbacks {
 	onToggleFullContext(next: boolean): void;
 	/** `rawVideo` is true when the user shift-clicked for the direct file URL. */
 	onCopyLink(rawVideo: boolean): void;
-	onToggleInfo(): void;
-	onResetLayout(): void;
+	onToggleExpert(): void;
 	onHelp(): void;
 }
 
 export interface Toolbar {
 	syncFullContext(value: boolean): void;
-	syncInfoHidden(value: boolean): void;
+	syncExpertView(value: boolean): void;
 	refresh(): void;
 }
 
@@ -50,15 +49,16 @@ export function installToolbar(callbacks: ToolbarCallbacks): Toolbar | null {
 			title: 'Copy the portal link for this clip (Y). Shift-click copies the direct video URL.',
 		},
 	});
-	const infoButton = el('button', {
+	const expertButton = el('button', {
 		class: 'vnh-btn',
-		text: 'Hide info',
-		attrs: { type: 'button', title: 'Hide the instructions row and the portal header block (H)' },
-	});
-	const resetButton = el('button', {
-		class: 'vnh-btn',
-		text: 'Reset layout',
-		attrs: { type: 'button', title: 'Restore the default panel and player sizes (R)' },
+		text: 'Expert view',
+		attrs: {
+			type: 'button',
+			'aria-pressed': 'false',
+			title: 'Hide the page header, footer and instructions and give the player the '
+				+ 'full screen, with the verdicts in a row underneath. Click again to '
+				+ 'restore the normal page (E).',
+		},
 	});
 	const helpButton = el('button', {
 		class: 'vnh-btn vnh-btn-icon',
@@ -74,8 +74,7 @@ export function installToolbar(callbacks: ToolbarCallbacks): Toolbar | null {
 			readout,
 			el('span', { class: 'vnh-spacer' }),
 			copyButton,
-			infoButton,
-			resetButton,
+			expertButton,
 			helpButton,
 		],
 	});
@@ -83,8 +82,7 @@ export function installToolbar(callbacks: ToolbarCallbacks): Toolbar | null {
 
 	checkbox.addEventListener('change', () => callbacks.onToggleFullContext(checkbox.checked));
 	copyButton.addEventListener('click', (event) => callbacks.onCopyLink(event.shiftKey));
-	infoButton.addEventListener('click', () => callbacks.onToggleInfo());
-	resetButton.addEventListener('click', () => callbacks.onResetLayout());
+	expertButton.addEventListener('click', () => callbacks.onToggleExpert());
 	helpButton.addEventListener('click', () => callbacks.onHelp());
 
 	let fullContext = false;
@@ -129,9 +127,8 @@ export function installToolbar(callbacks: ToolbarCallbacks): Toolbar | null {
 			checkboxLabel.classList.toggle('vnh-on', value);
 			updateReadout();
 		},
-		syncInfoHidden(value: boolean): void {
-			infoButton.textContent = value ? 'Show info' : 'Hide info';
-			infoButton.setAttribute('aria-pressed', value ? 'true' : 'false');
+		syncExpertView(value: boolean): void {
+			expertButton.setAttribute('aria-pressed', value ? 'true' : 'false');
 		},
 		refresh: updateReadout,
 	};

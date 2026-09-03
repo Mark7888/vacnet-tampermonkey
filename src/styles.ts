@@ -14,6 +14,8 @@ const CSS = `
 	--vnh-panel-solid: #14181d;
 	--vnh-border: rgba(198, 212, 223, 0.18);
 	--vnh-border-strong: rgba(198, 212, 223, 0.34);
+	/* How much of the screen the player takes up in expert view. */
+	--vnh-expert-width: 80vw;
 }
 
 .vnh-toolbar {
@@ -100,90 +102,150 @@ const CSS = `
 .vnh-readout b { color: var(--vnh-text); font-weight: 600; }
 .vnh-warn { color: #d47b6a; }
 
-/* --- hide the instructions / portal logo ------------------------------- */
-html.vnh-hide-info .top-section,
-html.vnh-hide-info .top-section-logo { display: none !important; }
+/* --- expert view ------------------------------------------------------- */
+html.vnh-expert .PageHeader,
+html.vnh-expert .footer-container,
+html.vnh-expert .top-section,
+html.vnh-expert .top-section-logo { display: none !important; }
 
-/* --- resizable columns ------------------------------------------------- */
-.vnh-split > .video-column {
-	flex: 0 0 var(--vnh-video-width) !important;
-	width: var(--vnh-video-width) !important;
-	max-width: none !important;
-	min-width: 360px;
+/*
+ * The stacked layout only makes sense when there is room for it; on smaller
+ * screens expert view just clears the page furniture and leaves the portal's
+ * own responsive layout alone.
+ */
+@media (min-width: 1100px) and (min-height: 620px) {
+	html.vnh-expert,
+	html.vnh-expert body {
+		height: 100%;
+		overflow: hidden !important;
+	}
+
+	html.vnh-expert .page-container {
+		box-sizing: border-box;
+		display: flex;
+		width: 100% !important;
+		max-width: none !important;
+		height: 100vh;
+		margin: 0 !important;
+		padding: 10px 0 14px !important;
+		overflow: hidden;
+	}
+
+	html.vnh-expert .flex-row-wrap {
+		flex-direction: column;
+		flex-wrap: nowrap !important;
+		align-items: center;
+		gap: 10px;
+		width: 100%;
+		height: 100%;
+		min-height: 0;
+	}
+
+	html.vnh-expert .video-column {
+		flex: 1 1 auto !important;
+		display: flex;
+		flex-direction: column;
+		width: var(--vnh-expert-width) !important;
+		max-width: var(--vnh-expert-width) !important;
+		min-width: 0;
+		min-height: 200px;
+		margin: 0 !important;
+		padding: 0 !important;
+	}
+
+	html.vnh-expert .videocontainer {
+		flex: 1 1 auto;
+		display: flex;
+		flex-direction: column;
+		min-height: 0;
+	}
+
+	html.vnh-expert .videocontainer > .vnh-toolbar { flex: 0 0 auto; }
+
+	html.vnh-expert .videocontainer .video-js,
+	html.vnh-expert .videocontainer > video {
+		flex: 1 1 auto;
+		width: 100% !important;
+		height: 100% !important;
+		max-height: none !important;
+		min-height: 0;
+	}
+
+	html.vnh-expert .videocontainer .video-js video {
+		width: 100%;
+		height: 100%;
+		object-fit: contain;
+	}
+
+	/*
+	 * Verdicts become one clean row underneath the player: the row takes the
+	 * height it needs and the player absorbs whatever is left, so nothing gets
+	 * clipped and the page never scrolls.
+	 */
+	html.vnh-expert .verdict-column {
+		flex: 0 0 auto !important;
+		max-height: 55vh;
+		width: var(--vnh-expert-width) !important;
+		max-width: var(--vnh-expert-width) !important;
+		min-width: 0;
+		min-height: 0;
+		margin: 0 !important;
+		overflow-x: hidden;
+		overflow-y: auto;
+	}
+
+	html.vnh-expert .verdicts-container,
+	html.vnh-expert .verdicts-container-inner { margin: 0 !important; }
+
+	html.vnh-expert .verdicts-container { padding: 10px 14px !important; }
+
+	html.vnh-expert .verdicts-container-inner {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+		align-items: start;
+		gap: 6px 18px;
+	}
+
+	html.vnh-expert .verdict-block {
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+		margin: 0 !important;
+		padding: 0 !important;
+	}
+
+	html.vnh-expert .verdict-desc {
+		margin: 0 !important;
+		font-size: clamp(11px, 0.72vw, 15px);
+		line-height: 1.35;
+	}
+
+	/* Keep the three verdict buttons on one line in a narrower column. */
+	html.vnh-expert .verdictbutton label {
+		padding: 6px 9px !important;
+		font-size: 12px !important;
+	}
+
+	html.vnh-expert .verdictbuttons {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: center;
+		gap: 6px;
+		margin: 0 !important;
+	}
+
+	/* Second stage: the buttons are replaced by the chosen-label lines. */
+	html.vnh-expert .verdictbuttonslabel,
+	html.vnh-expert .verdictbuttonsverdictlabel { margin: 0 !important; }
+
+	html.vnh-expert .submitbuttons {
+		display: flex;
+		justify-content: center;
+		margin-top: 8px !important;
+	}
+
+	html.vnh-expert .status-text-container { text-align: center; }
 }
-
-.vnh-split > .verdict-column {
-	flex: 1 1 0% !important;
-	width: auto !important;
-	max-width: none !important;
-	min-width: 280px;
-}
-
-.vnh-divider {
-	display: none;
-	flex: 0 0 12px;
-	align-self: stretch;
-	position: relative;
-	cursor: col-resize;
-	touch-action: none;
-}
-
-.vnh-split > .vnh-divider { display: block; }
-
-.vnh-divider::before {
-	content: "";
-	position: absolute;
-	top: 8px;
-	bottom: 8px;
-	left: 50%;
-	width: 2px;
-	transform: translateX(-50%);
-	background: var(--vnh-border);
-	transition: background-color 0.12s ease;
-}
-
-.vnh-divider:hover::before,
-.vnh-divider.vnh-dragging::before { background: var(--vnh-accent); }
-
-.vnh-height-handle {
-	display: block;
-	height: 10px;
-	margin: 2px 0 0 0;
-	position: relative;
-	cursor: row-resize;
-	touch-action: none;
-}
-
-.vnh-height-handle::before {
-	content: "";
-	position: absolute;
-	left: 50%;
-	top: 50%;
-	width: 56px;
-	height: 2px;
-	transform: translate(-50%, -50%);
-	background: var(--vnh-border);
-	transition: background-color 0.12s ease;
-}
-
-.vnh-height-handle:hover::before,
-.vnh-height-handle.vnh-dragging::before { background: var(--vnh-accent); }
-
-html.vnh-video-height .videocontainer .video-js,
-html.vnh-video-height .videocontainer > video {
-	height: var(--vnh-video-height) !important;
-	width: 100% !important;
-	max-height: none !important;
-}
-
-html.vnh-video-height .videocontainer .video-js video {
-	height: 100% !important;
-	width: 100% !important;
-	object-fit: contain;
-}
-
-html.vnh-resizing, html.vnh-resizing * { user-select: none !important; }
-html.vnh-resizing .vnh-col-resize { cursor: col-resize !important; }
 
 /* --- toast ------------------------------------------------------------- */
 .vnh-toast {

@@ -12,9 +12,7 @@ Written in TypeScript, bundled into a single `.user.js` file with esbuild.
 | --- | --- |
 | **View full context** | The portal pins the player inside a ~10 second window. Tick the checkbox and the whole recording plays and scrubs freely; untick it and the original window is back. |
 | **Copy clip link** | Copies the portal link for the current task. Shift-click (or shift + <kbd>Y</kbd>) copies the direct `.webm` URL instead. |
-| **Hide info** | Collapses the "Please watch the clip with audio…" block and the portal logo row, which otherwise just eat vertical space. Click again (or press <kbd>H</kbd>) to bring them back. |
-| **Resizable panels** | Drag the divider between the video column and the verdict column, and the handle under the player to change its height. Both sizes are remembered in `localStorage`. |
-| **Reset layout** | Puts the panels back to the portal's own proportions and clears the saved sizes. Double-clicking either handle resets just that handle. |
+| **Expert view** | Hides the page header, the footer, the "Please watch the clip with audio…" block and the portal logo, then gives the player 80% of the screen width with the verdicts in one clean row underneath. Nothing scrolls: the verdict row takes the height it needs and the player fills the rest. Click again (or press <kbd>E</kbd>) to get the normal page back. |
 | **Keyboard control** | Play/pause, frame stepping, seeking, speed and volume without touching the mouse — see below. |
 | **Clip readout** | Shows your position inside the clip window, how long the window is, where the flagged event sits, and the current speed. |
 
@@ -51,9 +49,8 @@ Press <kbd>?</kbd> on the page for the same list.
 | Keys | Action |
 | --- | --- |
 | <kbd>C</kbd> | Toggle "View full context" |
+| <kbd>E</kbd> | Toggle expert view |
 | <kbd>Y</kbd> | Copy clip link |
-| <kbd>H</kbd> | Hide / show the info row |
-| <kbd>R</kbd> | Reset the panel layout |
 | <kbd>?</kbd> | Show / hide the shortcut list |
 | <kbd>Esc</kbd> | Close the shortcut list |
 
@@ -105,9 +102,12 @@ the `@version`).
 * `src/player.ts` — reads the clip start/end/event timestamps back out of the
   portal's inline script, and talks to the underlying `<video>` element so it
   works with or without video.js.
-* `src/ui/` — toolbar, resizable columns, shortcut modal and toasts. Accent
-  colours are sampled from the page at runtime, so the additions follow the
-  site's own palette.
+* `src/ui/` — toolbar, expert view, shortcut modal and toasts. Expert view is
+  pure CSS (`html.vnh-expert` in `src/styles.ts`), so the portal's own layout is
+  left completely untouched while it is off, and the stacked layout only kicks in
+  from 1100x620 upwards — below that expert view just clears the page furniture.
+  Accent colours are sampled from the page at runtime, so the additions follow
+  the site's own palette.
 * `test/` — a fixture that reproduces the portal's markup (with a simulated media
   element) plus an end-to-end suite that drives the built userscript in Chromium.
 

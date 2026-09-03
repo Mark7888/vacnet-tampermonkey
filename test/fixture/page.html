@@ -13,6 +13,14 @@
 	.video-js { width:100%; height:auto; background:#000; display:block; }
 	.video-js video { width:100%; display:block; }
 	.top-section-logo { height:60px; background:#2a475e; }
+	.verdicts-container { background:#22262c; border-radius:6px; padding:14px; }
+	.verdict-block { margin-bottom:18px; }
+	.verdict-desc { display:block; margin-bottom:8px; }
+	.verdictbuttons { display:flex; gap:8px; }
+	.verdictbutton label { display:block; padding:8px 14px; background:#3b4048; border-radius:4px; }
+	.submitbuttons { text-align:center; }
+	.PageHeader { height:38px; background:#111; }
+	.footer-container { padding:18px; text-align:center; }
 	.highlight-text { color:#d5903a; }
 	.modaloverlay { display:none; }
 </style>
@@ -91,16 +99,75 @@
 			<div class="verdicts-container">
 				<div class="verdicts-container-inner">
 					<div class="verdict-block">
-						<label class="verdict-desc" for="verdictbuttons_aimassist">Aim assist?</label>
+						<label class="verdict-desc" for="verdictbuttons_aimassist">Használ a gyanúsított célzássegítést ellenfelek célbavételéhez vagy azonnali tüzeléshez, amikor egy ellenfél a gyanúsított célkeresztjébe lép?</label>
 						<div id="verdictbuttons_aimassist" class="verdictbuttons">
 							<div class="verdictbutton positive">
 								<input type="radio" id="aimassist_positive" name="aimassist" value="positive">
 								<label for="aimassist_positive">Label&nbsp;<span class="highlight-text">Aim Assist</span></label>
 							</div>
+							<div class="verdictbutton skip">
+								<input type="radio" id="aimassist_skip" name="aimassist" value="skip" checked>
+								<label for="aimassist_skip"><b>Uncertain</b></label>
+							</div>
+							<div class="verdictbutton negative">
+								<input type="radio" id="aimassist_negative" name="aimassist" value="negative">
+								<label for="aimassist_negative">Label&nbsp;<span class="highlight-text-negative">Not</span>&nbsp;Aim Assist</label>
+							</div>
+						</div>
+					</div>
+					<div class="verdict-block">
+						<label class="verdict-desc" for="verdictbuttons_wallhack">Használ a gyanúsított wall-hacket, hogy lássa az ellenséges játékosokat falon, padlón, füstön át, villanógránát alatt vagy más akadályokon át?</label>
+						<div id="verdictbuttons_wallhack" class="verdictbuttons">
+							<div class="verdictbutton positive">
+								<input type="radio" id="wallhack_positive" name="wallhack" value="positive">
+								<label for="wallhack_positive">Label&nbsp;<span class="highlight-text">Wall Hack</span></label>
+							</div>
+							<div class="verdictbutton skip">
+								<input type="radio" id="wallhack_skip" name="wallhack" value="skip" checked>
+								<label for="wallhack_skip"><b>Uncertain</b></label>
+							</div>
+							<div class="verdictbutton negative">
+								<input type="radio" id="wallhack_negative" name="wallhack" value="negative">
+								<label for="wallhack_negative">Label&nbsp;<span class="highlight-text-negative">Not</span>&nbsp;Wall Hack</label>
+							</div>
+						</div>
+					</div>
+					<div class="verdict-block">
+						<label class="verdict-desc" for="verdictbuttons_autobhop">Használ a gyanúsított segítséget az ugrási bevitelei időzítéséhez a földet érés pontos pillanatában a mozgási sebesség növelésére?</label>
+						<div id="verdictbuttons_autobhop" class="verdictbuttons">
+							<div class="verdictbutton positive">
+								<input type="radio" id="autobhop_positive" name="autobhop" value="positive">
+								<label for="autobhop_positive">Label&nbsp;<span class="highlight-text">Auto BHop</span></label>
+							</div>
+							<div class="verdictbutton skip">
+								<input type="radio" id="autobhop_skip" name="autobhop" value="skip" checked>
+								<label for="autobhop_skip"><b>Uncertain</b></label>
+							</div>
+							<div class="verdictbutton negative">
+								<input type="radio" id="autobhop_negative" name="autobhop" value="negative">
+								<label for="autobhop_negative">Label&nbsp;<span class="highlight-text-negative">Not</span>&nbsp;Auto BHop</label>
+							</div>
+						</div>
+					</div>
+					<div class="verdict-block">
+						<label class="verdict-desc" for="verdictbuttons_bot">Teljesen automatizáltnak tűnik a gyanúsított?</label>
+						<div id="verdictbuttons_bot" class="verdictbuttons">
+							<div class="verdictbutton positive">
+								<input type="radio" id="bot_positive" name="bot" value="positive">
+								<label for="bot_positive">Label&nbsp;<span class="highlight-text">Bot Player</span></label>
+							</div>
+							<div class="verdictbutton skip">
+								<input type="radio" id="bot_skip" name="bot" value="skip" checked>
+								<label for="bot_skip"><b>Uncertain</b></label>
+							</div>
+							<div class="verdictbutton negative">
+								<input type="radio" id="bot_negative" name="bot" value="negative">
+								<label for="bot_negative">Label&nbsp;<span class="highlight-text-negative">Not</span>&nbsp;Bot Player</label>
+							</div>
 						</div>
 					</div>
 				</div>
-				<div id="submitbuttons" class="submitbuttons"></div>
+				<div id="submitbuttons" class="submitbuttons"><button class="submitverdictbutton">Proceed</button></div>
 				<div class="status-text-container" id="statustext"></div>
 			</div>
 			<form id="submitverdictform" method="POST" action="/vacnet/submit?submit_success=1">

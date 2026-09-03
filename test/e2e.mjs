@@ -113,14 +113,92 @@ check('shortcuts ignored while typing in a text field',
 	(await page.evaluate(() => document.getElementById('video_html5_api').currentTime)) === beforeTyping);
 await page.evaluate(() => { document.getElementById('typing').remove(); document.body.focus(); });
 
-// --- hide info -------------------------------------------------------------
-await page.click('.vnh-toolbar .vnh-btn:nth-of-type(2)');
-check('info row hidden', !(await page.isVisible('.top-section')) && !(await page.isVisible('.top-section-logo')));
-check('hide button offers to bring it back',
-	(await page.textContent('.vnh-toolbar .vnh-btn:nth-of-type(2)')) === 'Show info');
-await page.keyboard.press('KeyH');
-check('H brings the info row back', await page.isVisible('.top-section'));
-await page.click('.vnh-toolbar .vnh-btn:nth-of-type(2)');
+// --- expert view -----------------------------------------------------------
+const expertButton = '.vnh-toolbar .vnh-btn:nth-of-type(2)';
+await page.click(expertButton);
+await sleep(150);
+
+async function readExpertLayout() {
+	return page.evaluate(() => {
+		const box = (selector) => document.querySelector(selector).getBoundingClientRect();
+		const column = document.querySelector('.verdict-column');
+		const proceed = document.querySelector('.submitbuttons button');
+		return {
+			headerVisible: getComputedStyle(document.querySelector('.PageHeader')).display !== 'none',
+			footerVisible: getComputedStyle(document.querySelector('.footer-container')).display !== 'none',
+			infoVisible: getComputedStyle(document.querySelector('.top-section')).display !== 'none',
+			logoVisible: getComputedStyle(document.querySelector('.top-section-logo')).display !== 'none',
+			columnWidth: box('.video-column').width,
+			videoTop: box('.videocontainer .video-js').top,
+			videoBottom: box('.videocontainer .video-js').bottom,
+			verdictTop: column.getBoundingClientRect().top,
+			verdictBottom: column.getBoundingClientRect().bottom,
+			hiddenInsideVerdicts: column.scrollHeight - column.clientHeight,
+			proceedBottom: proceed.getBoundingClientRect().bottom,
+			blocks: [...document.querySelectorAll('.verdict-block')].map((b) => {
+				const r = b.getBoundingClientRect();
+				return { left: Math.round(r.left), top: Math.round(r.top) };
+			}),
+			scrollHeight: document.documentElement.scrollHeight,
+			innerHeight: window.innerHeight,
+			innerWidth: window.innerWidth,
+		};
+	});
+}
+
+// The layout has to hold up on every screen the stacked mode applies to.
+for (const size of [{ width: 1600, height: 900 }, { width: 1920, height: 1080 }, { width: 2560, height: 1440 }]) {
+	await page.setViewportSize(size);
+	await sleep(200);
+	const view = await readExpertLayout();
+	const at = `${size.width}x${size.height}`;
+	check(`${at}: header, footer and info blocks hidden`,
+		!view.headerVisible && !view.footerVisible && !view.infoVisible && !view.logoVisible);
+	check(`${at}: player is 80% of the screen width`,
+		Math.abs(view.columnWidth - view.innerWidth * 0.8) < 2,
+		`${view.columnWidth} vs ${view.innerWidth * 0.8}`);
+	check(`${at}: verdicts sit below the player`, view.verdictTop >= view.videoBottom - 1,
+		`verdict ${view.verdictTop} vs video bottom ${view.videoBottom}`);
+	check(`${at}: the four verdicts form a single row`,
+		view.blocks.length === 4
+			&& view.blocks.every((b) => Math.abs(b.top - view.blocks[0].top) < 2)
+			&& new Set(view.blocks.map((b) => b.left)).size === 4,
+		JSON.stringify(view.blocks));
+	check(`${at}: nothing is clipped and the page does not scroll`,
+		view.scrollHeight <= view.innerHeight + 1
+			&& view.verdictBottom <= view.innerHeight + 1
+			&& view.proceedBottom <= view.innerHeight + 1
+			&& view.hiddenInsideVerdicts <= 1,
+		`scrollHeight=${view.scrollHeight} proceed=${Math.round(view.proceedBottom)} `
+			+ `hidden=${view.hiddenInsideVerdicts} viewport=${view.innerHeight}`);
+	check(`${at}: the player takes most of the height`,
+		view.videoBottom - view.videoTop > view.innerHeight * 0.5,
+		`${Math.round(view.videoBottom - view.videoTop)}px of ${view.innerHeight}px`);
+}
+
+await page.setViewportSize({ width: 1600, height: 900 });
+await sleep(150);
+check('the page cannot be scrolled in expert view',
+	await page.evaluate(() => {
+		window.scrollTo(0, 500);
+		return window.scrollY === 0;
+	}));
+check('expert view persisted',
+	await page.evaluate(() => JSON.parse(localStorage.getItem('vacnetEnhancer.settings.v1')).expertView === true));
+
+await page.keyboard.press('KeyE');
+await sleep(150);
+const restoredNormal = await page.evaluate(() => ({
+	headerVisible: getComputedStyle(document.querySelector('.PageHeader')).display !== 'none',
+	infoVisible: getComputedStyle(document.querySelector('.top-section')).display !== 'none',
+	sideBySide: Math.abs(document.querySelector('.video-column').getBoundingClientRect().top
+		- document.querySelector('.verdict-column').getBoundingClientRect().top) < 8,
+	overflow: getComputedStyle(document.body).overflow,
+}));
+check('E leaves expert view and restores the page',
+	restoredNormal.headerVisible && restoredNormal.infoVisible && restoredNormal.sideBySide
+		&& restoredNormal.overflow !== 'hidden',
+	JSON.stringify(restoredNormal));
 
 // --- copy link -------------------------------------------------------------
 await page.click('.vnh-toolbar .vnh-btn:nth-of-type(1)');
@@ -132,60 +210,51 @@ await sleep(100);
 const copiedRaw = await page.evaluate(() => navigator.clipboard.readText());
 check('shift-click copies the video URL', copiedRaw.endsWith('clip.webm'), copiedRaw);
 
-// --- resizing --------------------------------------------------------------
-const before = await page.evaluate(() => document.querySelector('.video-column').getBoundingClientRect().width);
-const divider = await page.locator('.vnh-divider').boundingBox();
-await page.mouse.move(divider.x + 6, divider.y + 60);
-await page.mouse.down();
-await page.mouse.move(divider.x - 300, divider.y + 60, { steps: 8 });
-await page.mouse.up();
-const after = await page.evaluate(() => document.querySelector('.video-column').getBoundingClientRect().width);
-check('dragging the divider resizes the columns', Math.abs(before - after) > 200, `${before} -> ${after}`);
-const savedRatio = await page.evaluate(() => JSON.parse(localStorage.getItem('vacnetEnhancer.settings.v1')).splitRatio);
-check('split ratio persisted', typeof savedRatio === 'number', String(savedRatio));
-
-await page.locator('.vnh-height-handle').scrollIntoViewIfNeeded();
-const handle = await page.locator('.vnh-height-handle').boundingBox();
-await page.mouse.move(handle.x + 40, handle.y + 5);
-await page.mouse.down();
-await page.mouse.move(handle.x + 40, handle.y - 150, { steps: 6 });
-await page.mouse.up();
-const liveHeight = await page.evaluate(() => document.querySelector('.videocontainer .video-js').getBoundingClientRect().height);
-const savedHeight = await page.evaluate(() => JSON.parse(localStorage.getItem('vacnetEnhancer.settings.v1')).videoHeight);
-check('player height persisted', typeof savedHeight === 'number' && savedHeight > 0, String(savedHeight));
-check('dragging the handle shrinks the player', Math.abs(liveHeight - savedHeight) < 2, `${liveHeight} vs ${savedHeight}`);
-
 // --- persistence across reloads -------------------------------------------
+await page.click(expertButton);
 await page.reload();
 await page.waitForSelector('.vnh-toolbar');
-await sleep(200);
-const restored = await page.evaluate(() => ({
-	width: document.querySelector('.video-column').getBoundingClientRect().width,
-	hidden: getComputedStyle(document.querySelector('.top-section')).display === 'none',
-	height: getComputedStyle(document.querySelector('.videocontainer .video-js')).height,
+await sleep(250);
+const afterReload = await page.evaluate(() => ({
+	expert: document.documentElement.classList.contains('vnh-expert'),
+	pressed: document.querySelector('.vnh-toolbar .vnh-btn:nth-of-type(2)').getAttribute('aria-pressed'),
+	headerVisible: getComputedStyle(document.querySelector('.PageHeader')).display !== 'none',
+	columnWidth: document.querySelector('.video-column').getBoundingClientRect().width,
+	fits: document.documentElement.scrollHeight <= window.innerHeight + 1,
 }));
-check('column width restored after reload', Math.abs(restored.width - after) < 3, JSON.stringify(restored));
-check('info row still hidden after reload', restored.hidden);
-check('player height restored after reload', Math.abs(parseFloat(restored.height) - savedHeight) < 2, restored.height);
+check('expert view restored after reload',
+	afterReload.expert && afterReload.pressed === 'true' && !afterReload.headerVisible && afterReload.fits,
+	JSON.stringify(afterReload));
 
-// --- reset -----------------------------------------------------------------
-await page.click('.vnh-toolbar .vnh-btn:nth-of-type(3)');
+// --- untouched layout outside expert view ---------------------------------
+await page.click(expertButton);
 await sleep(100);
-const resetState = await page.evaluate(() => ({
-	settings: JSON.parse(localStorage.getItem('vacnetEnhancer.settings.v1')),
-	width: document.querySelector('.video-column').getBoundingClientRect().width,
-	varSet: document.documentElement.classList.contains('vnh-video-height'),
-}));
-check('reset clears the stored sizes',
-	resetState.settings.splitRatio === null && resetState.settings.videoHeight === null && !resetState.varSet,
-	JSON.stringify(resetState));
-check('reset restores the site proportions', Math.abs(resetState.width - before) < 12, `${resetState.width} vs ${before}`);
+const normalLayout = await page.evaluate(() => {
+	const video = document.querySelector('.video-column').getBoundingClientRect();
+	const row = document.querySelector('.flex-row-wrap').getBoundingClientRect();
+	return {
+		ratio: video.width / row.width,
+		inlineStyles: document.querySelector('.flex-row-wrap').getAttribute('style'),
+		classes: document.querySelector('.flex-row-wrap').className,
+	};
+});
+check('the portal layout is left untouched outside expert view',
+	Math.abs(normalLayout.ratio - 0.66) < 0.01 && !normalLayout.inlineStyles
+		&& normalLayout.classes === 'flex-row-wrap',
+	JSON.stringify(normalLayout));
 
-// --- narrow viewport -------------------------------------------------------
-await page.setViewportSize({ width: 800, height: 900 });
+// --- small screens ---------------------------------------------------------
+await page.setViewportSize({ width: 900, height: 700 });
+await page.click(expertButton);
 await sleep(150);
-check('split disabled on narrow layouts',
-	!(await page.evaluate(() => document.querySelector('.flex-row-wrap').classList.contains('vnh-split'))));
+const small = await page.evaluate(() => ({
+	headerVisible: getComputedStyle(document.querySelector('.PageHeader')).display !== 'none',
+	overflow: getComputedStyle(document.body).overflow,
+	stacked: getComputedStyle(document.querySelector('.flex-row-wrap')).flexDirection === 'column',
+}));
+check('small screens keep the portal layout but still lose the furniture',
+	!small.headerVisible && small.overflow !== 'hidden' && !small.stacked,
+	JSON.stringify(small));
 
 await browser.close();
 server.close();
