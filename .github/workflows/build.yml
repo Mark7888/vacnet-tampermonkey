@@ -1,0 +1,86 @@
+name: Build
+
+on:
+  push:
+    branches: ['**']
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Type-check and build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run typecheck
+
+      - run: npm run build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vacnet-enhancer-userscript
+          path: dist/*.js
+          if-no-files-found: error
+
+  e2e:
+    name: Browser tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - run: npx playwright install --with-deps chromium
+
+      - run: npm run build
+
+      - run: npm test
+
+  release:
+    name: Attach the userscript to the release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [build, e2e]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      # Keep the userscript's @version in sync with the tag being released.
+      - run: npm version --no-git-tag-version --allow-same-version "${GITHUB_REF_NAME#v}"
+
+      - run: npm run build
+
+      - name: Publish assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --title "$GITHUB_REF_NAME" --generate-notes \
+            dist/vacnet-enhancer.user.js dist/vacnet-enhancer.meta.js \
+          || gh release upload "$GITHUB_REF_NAME" \
+            dist/vacnet-enhancer.user.js dist/vacnet-enhancer.meta.js --clobber

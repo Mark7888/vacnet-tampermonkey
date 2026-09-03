@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<title>CS2 Video Review</title>
+<style>
+	body { background:#1b2838; color:#c6d4df; font-family:Arial, sans-serif; margin:0; }
+	.page-container { padding:16px; }
+	.flex-row-wrap { display:flex; flex-wrap:wrap; align-items:flex-start; }
+	.video-column { flex:0 0 66%; max-width:66%; }
+	.verdict-column { flex:1 1 30%; }
+	.videocontainer { width:100%; }
+	.video-js { width:100%; height:auto; background:#000; display:block; }
+	.video-js video { width:100%; display:block; }
+	.top-section-logo { height:60px; background:#2a475e; }
+	/*
+	 * These mirror how the portal's own stylesheet constrains the layout: rules
+	 * that are more specific than any plain userscript selector, some of them
+	 * !important. The enhancer has to win against them in expert view.
+	 */
+	.page-container .flex-row-wrap .video-column { max-width:900px !important; }
+	.page-container .flex-row-wrap .verdict-column.size-for-column { height:100% !important; }
+	.verdict-column .verdicts-container {
+		background:#22262c; border-radius:6px; padding:14px;
+		height:100%; min-height:420px; box-sizing:border-box;
+	}
+	.verdicts-container .verdict-block { margin-bottom:18px; }
+	.verdicts-container .verdict-desc { display:block; margin-bottom:8px; }
+	.verdicts-container .verdictbuttons { display:flex; gap:8px; }
+	.verdicts-container .verdictbutton label {
+		display:block; padding:10px 18px !important; font-size:14px !important;
+		background:#3b4048; border-radius:4px;
+	}
+	.submitbuttons { text-align:center; }
+	.PageHeader { height:38px; background:#111; }
+	.footer-container { padding:18px; text-align:center; }
+	.highlight-text { color:#d5903a; }
+	.modaloverlay { display:none; }
+</style>
+</head>
+<body>
+<div class="PageHeader"><div class="right"><p class="ClipCount"><b>Címkézett klipek:</b> 33</p></div></div>
+<div class="page-container">
+	<div class="flex-row-wrap">
+		<div class="video-column">
+			<div class="top-section">
+				<div class="top-section-text">
+					<h3 class="list-title">Please watch the clip with audio and answer the question(s) presented.</h3>
+					<ul class="labeled-list"><li>X-Ray is active.</li></ul>
+				</div>
+			</div>
+			<div class="videocontainer">
+				<video id="video" class="video-js vjs-normalise-time-controls" controls preload="metadata"
+					data-setup='{"playbackRates": [0.1, 0.2, 0.4, 0.75, 1.0] }' height="1080" width="1920">
+					<source src="clip.webm" type="video/webm" />
+				</video>
+				<script src="fakemedia.js"></script>
+				<script language="javascript">
+					function LocalStorageGet( name, defaultVal )
+					{
+						const jsonVal = window.localStorage.getItem( name );
+						return ( jsonVal === null ) ? defaultVal : JSON.parse(jsonVal);
+					}
+					function LocalStorageSave( name, val )
+					{
+						const jsonVal = JSON.stringify( val );
+						window.localStorage.setItem( name, val );
+					}
+					( function() {
+						const startTime = 288.58334350586;
+						const endTime = startTime + 10.715179443359;
+						const eventTime = 297.29852294922;
+						const video = videojs( 'video' );
+						let loaded = false;
+						let ended = false;
+						video.volume( LocalStorageGet( 'playerVolume', 1.0 ) );
+						video.muted( LocalStorageGet( 'playerMuted', false ) );
+						video.on( 'volumechange', function() {
+							LocalStorageSave( 'playerVolume', video.volume() );
+							LocalStorageSave( 'playerMuted', video.muted() );
+						} );
+						video.pause();
+						video.on('loadeddata', function() {
+							setTimeout( function()
+							{
+								video.currentTime(startTime);
+								video.play();
+								loaded = true;
+							}, 100)
+						});
+						video.on('ended', function() { ended = true; });
+						let checkTime = setInterval(function() {
+							const curTime = video.currentTime();
+							if (curTime >= endTime || ended)
+							{
+								video.pause();
+								video.currentTime( startTime );
+								ended = false;
+								setTimeout( function() { video.play(); }, 100)
+							}
+							else if (curTime < (startTime - 1.0/60.0))
+							{
+								video.currentTime( startTime );
+							}
+						}, 100);
+					} )();
+				</script>
+			</div>
+		</div>
+		<div class="verdict-column size-for-column">
+			<div class="top-section-logo hide-on-wrap"></div>
+			<div class="verdicts-container">
+				<div class="verdicts-container-inner">
+					<div class="verdict-block">
+						<label class="verdict-desc" for="verdictbuttons_aimassist">Használ a gyanúsított célzássegítést ellenfelek célbavételéhez vagy azonnali tüzeléshez, amikor egy ellenfél a gyanúsított célkeresztjébe lép?</label>
+						<div id="verdictbuttons_aimassist" class="verdictbuttons">
+							<div class="verdictbutton positive">
+								<input type="radio" id="aimassist_positive" name="aimassist" value="positive">
+								<label for="aimassist_positive">Label&nbsp;<span class="highlight-text">Aim Assist</span></label>
+							</div>
+							<div class="verdictbutton skip">
+								<input type="radio" id="aimassist_skip" name="aimassist" value="skip" checked>
+								<label for="aimassist_skip"><b>Uncertain</b></label>
+							</div>
+							<div class="verdictbutton negative">
+								<input type="radio" id="aimassist_negative" name="aimassist" value="negative">
+								<label for="aimassist_negative">Label&nbsp;<span class="highlight-text-negative">Not</span>&nbsp;Aim Assist</label>
+							</div>
+						</div>
+					</div>
+					<div class="verdict-block">
+						<label class="verdict-desc" for="verdictbuttons_wallhack">Használ a gyanúsított wall-hacket, hogy lássa az ellenséges játékosokat falon, padlón, füstön át, villanógránát alatt vagy más akadályokon át?</label>
+						<div id="verdictbuttons_wallhack" class="verdictbuttons">
+							<div class="verdictbutton positive">
+								<input type="radio" id="wallhack_positive" name="wallhack" value="positive">
+								<label for="wallhack_positive">Label&nbsp;<span class="highlight-text">Wall Hack</span></label>
+							</div>
+							<div class="verdictbutton skip">
+								<input type="radio" id="wallhack_skip" name="wallhack" value="skip" checked>
+								<label for="wallhack_skip"><b>Uncertain</b></label>
+							</div>
+							<div class="verdictbutton negative">
+								<input type="radio" id="wallhack_negative" name="wallhack" value="negative">
+								<label for="wallhack_negative">Label&nbsp;<span class="highlight-text-negative">Not</span>&nbsp;Wall Hack</label>
+							</div>
+						</div>
+					</div>
+					<div class="verdict-block">
+						<label class="verdict-desc" for="verdictbuttons_autobhop">Használ a gyanúsított segítséget az ugrási bevitelei időzítéséhez a földet érés pontos pillanatában a mozgási sebesség növelésére?</label>
+						<div id="verdictbuttons_autobhop" class="verdictbuttons">
+							<div class="verdictbutton positive">
+								<input type="radio" id="autobhop_positive" name="autobhop" value="positive">
+								<label for="autobhop_positive">Label&nbsp;<span class="highlight-text">Auto BHop</span></label>
+							</div>
+							<div class="verdictbutton skip">
+								<input type="radio" id="autobhop_skip" name="autobhop" value="skip" checked>
+								<label for="autobhop_skip"><b>Uncertain</b></label>
+							</div>
+							<div class="verdictbutton negative">
+								<input type="radio" id="autobhop_negative" name="autobhop" value="negative">
+								<label for="autobhop_negative">Label&nbsp;<span class="highlight-text-negative">Not</span>&nbsp;Auto BHop</label>
+							</div>
+						</div>
+					</div>
+					<div class="verdict-block">
+						<label class="verdict-desc" for="verdictbuttons_bot">Teljesen automatizáltnak tűnik a gyanúsított?</label>
+						<div id="verdictbuttons_bot" class="verdictbuttons">
+							<div class="verdictbutton positive">
+								<input type="radio" id="bot_positive" name="bot" value="positive">
+								<label for="bot_positive">Label&nbsp;<span class="highlight-text">Bot Player</span></label>
+							</div>
+							<div class="verdictbutton skip">
+								<input type="radio" id="bot_skip" name="bot" value="skip" checked>
+								<label for="bot_skip"><b>Uncertain</b></label>
+							</div>
+							<div class="verdictbutton negative">
+								<input type="radio" id="bot_negative" name="bot" value="negative">
+								<label for="bot_negative">Label&nbsp;<span class="highlight-text-negative">Not</span>&nbsp;Bot Player</label>
+							</div>
+						</div>
+					</div>
+				</div>
+				<div id="submitbuttons" class="submitbuttons"><button class="submitverdictbutton" onclick="SetModeConfirmLabels()">Proceed</button></div>
+				<div class="status-text-container" id="statustext"></div>
+			</div>
+			<form id="submitverdictform" method="POST" action="/vacnet/submit?submit_success=1">
+				<input type="hidden" name="verdict_task" value="1767109">
+			</form>
+		</div>
+	</div>
+</div>
+<div id="detailsModalOverlay" class="modaloverlay">
+	<div id="detailsModalContent" class="modalcontent">
+		<div id="detailsModalHeader" class="modalheader">Clip Details</div>
+		<table class="detailstable"><tr><td>Task ID</td><td>
+			<a href="https://www.counter-strike.net/vacnet/view?s=6a9ad099001af6c538c493a652129a0f93c687d013939707">1767109</a>
+		</td></tr></table>
+	</div>
+</div>
+<script>
+	// Mimics the portal's second labeling stage, which rewrites the verdict
+	// buttons in place - the enhancer has to re-apply its layout afterwards.
+	function SetModeConfirmLabels() {
+		for (const key of ['aimassist', 'wallhack', 'autobhop', 'bot']) {
+			const target = document.getElementById('verdictbuttons_' + key);
+			target.classList.add('new-custom-class');
+			target.innerHTML = '<p class="verdictbuttonslabel">' + key + ' : </p>'
+				+ '<p class="verdictbuttonsverdictlabel">&nbsp;<b>Uncertain</b></p>';
+		}
+		document.getElementById('submitbuttons').innerHTML =
+			'<button class="backbutton">Back</button>'
+			+ '<button class="submitverdictbutton">Confirm</button>';
+	}
+</script>
+<footer class="footer-container"><p>Valve trademark blurb</p></footer>
+</body>
+</html>
