@@ -59,8 +59,12 @@ const PANEL_INSET = '22px';
 
 const PRIMARY_BUTTON: Declarations = {
 	'box-sizing': 'border-box',
+	// Same height as an answer, so Proceed reads as part of that row.
+	height: ROW_HEIGHT,
+	'min-height': ROW_HEIGHT,
+	'max-height': ROW_HEIGHT,
 	margin: '0',
-	padding: '7px 20px',
+	padding: '0 20px',
 	background: 'var(--vnh-accent, #d5903a)',
 	border: '1px solid transparent',
 	'border-radius': '3px',
@@ -68,6 +72,7 @@ const PRIMARY_BUTTON: Declarations = {
 	font: 'inherit',
 	'font-size': '12px',
 	'font-weight': '700',
+	'line-height': '26px',
 	'letter-spacing': '0.08em',
 	'text-transform': 'uppercase',
 	cursor: 'pointer',
@@ -172,8 +177,18 @@ function decorateAnswers(buttons: HTMLElement): void {
 		const look = CHOICES[choice];
 
 		style(button, {
+			// A bare wrapper: the portal paints the button itself (a rounded fill,
+			// and a border on the one whose radio is checked) and gives it a
+			// height of its own, which would show up around and behind our answer
+			// and push the row past the height the panel is laid out for.
 			position: 'relative',
 			'box-sizing': 'border-box',
+			display: 'block',
+			background: 'none',
+			border: '0',
+			'border-radius': '0',
+			'box-shadow': 'none',
+			outline: 'none',
 			// Equal thirds, but never narrower than the word inside: "Uncertain"
 			// is the widest of the three and overlaps its neighbours if the
 			// column gets narrow enough to squeeze it.
@@ -181,6 +196,9 @@ function decorateAnswers(buttons: HTMLElement): void {
 			'min-width': 'fit-content',
 			'max-width': 'none',
 			float: 'none',
+			height: ROW_HEIGHT,
+			'min-height': ROW_HEIGHT,
+			'max-height': ROW_HEIGHT,
 			margin: '0',
 			padding: '0',
 		});
@@ -332,7 +350,7 @@ function decorateSubmit(): void {
 
 	/** Top of the content area, and how far its bottom sits above the panel's. */
 	const contentTop = '14px';
-	const contentBottom = `calc(12px + ${STATUS_SPACE})`;
+	const contentBottom = `calc(16px + ${STATUS_SPACE})`;
 
 	if (container) {
 		style(container, {
@@ -388,7 +406,8 @@ function decorateSubmit(): void {
 			display: 'flex',
 			'flex-wrap': 'nowrap',
 			'justify-content': 'center',
-			'align-items': 'center',
+			// Bottom of the content area is where the answer row sits.
+			'align-items': 'flex-end',
 			float: 'none',
 			gap: '8px',
 			width: SUBMIT_WIDTH,

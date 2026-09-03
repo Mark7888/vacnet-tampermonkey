@@ -45,6 +45,25 @@
 		grid-auto-rows:190px !important; justify-items:center !important;
 	}
 	.verdict-column .verdicts-container .verdict-block { min-width:220px !important; }
+	.verdicts-container-inner { background:#262b33; border-radius:6px; }
+	/*
+	 * The portal paints the verdict buttons themselves: a rounded fill taller
+	 * than the label inside it, a dot in front of it, and a border on whichever
+	 * one is checked. All of it has to come off in expert view - left on, the
+	 * buttons stand taller than the row the panel is laid out for and spill out
+	 * of the panel and into the status line underneath it.
+	 */
+	.verdicts-container .verdictbutton {
+		display:flex; align-items:center; justify-content:center;
+		min-height:34px; padding:4px 6px !important;
+		background:#3b4048; border-radius:14px;
+	}
+	.verdicts-container .verdictbutton::before {
+		content:''; width:9px; height:9px; border-radius:50%; background:#8fa0ad;
+	}
+	.verdicts-container .verdictbutton:has(input[type="radio"]:checked) {
+		border:1.5px solid #fff;
+	}
 	.verdict-column .verdicts-container .status-text-container {
 		width:max-content !important; padding:0 !important;
 		background:#2f3742; border-radius:3px;

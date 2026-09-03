@@ -108,6 +108,17 @@ const CSS = `
  */
 html.vnh-expert .vnh-toolbar { margin-bottom: 6px; flex: 0 0 auto; }
 
+/*
+ * The portal decorates the verdict buttons themselves. Their fill, border and
+ * radius are overridden inline (see src/ui/verdicts.ts); a pseudo-element can
+ * only be switched off from here.
+ */
+html.vnh-expert .verdictbutton::before,
+html.vnh-expert .verdictbutton::after {
+	content: none !important;
+	display: none !important;
+}
+
 html.vnh-expert .verdictbutton label:hover,
 html.vnh-expert .submitbuttons button:hover {
 	filter: brightness(1.14) !important;

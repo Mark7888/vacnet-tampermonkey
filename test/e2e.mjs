@@ -244,6 +244,32 @@ const readVerdicts = () => page.evaluate(() => {
 			const label = input && document.querySelector(`label[for="${input.id}"]`);
 			return label ? { text: label.textContent, background: getComputedStyle(label).backgroundColor } : null;
 		})(),
+		// The portal paints the buttons; expert view has to take that paint off,
+		// or it shows around the answer and stands taller than the row.
+		paint: (() => {
+			const button = document.querySelector('.verdictbutton');
+			if (!button) return null;
+			const style = getComputedStyle(button);
+			return {
+				background: style.backgroundColor,
+				border: style.borderTopWidth,
+				height: Math.round(box(button).height),
+				labelHeight: Math.round(box(button.querySelector('label')).height),
+			};
+		})(),
+		// Everything the panel shows has to fit inside the panel and its grid.
+		answersBottom: Math.max(...[...document.querySelectorAll(
+			'.verdictbutton label, .verdictbuttonsverdictlabel')].map((n) => box(n).bottom)),
+		innerBottom: box(inner).bottom,
+		submitBottom: (() => {
+			const button = document.querySelector('#submitbuttons button');
+			return button ? box(button).bottom : 0;
+		})(),
+		submitHeight: (() => {
+			const button = document.querySelector('#submitbuttons button');
+			return button ? Math.round(box(button).height) : 0;
+		})(),
+		statusTop: status ? box(status).top : 0,
 		submitLeft: Math.round(box(document.querySelector('#submitbuttons')).left),
 		submitTop: Math.round(box(document.querySelector('#submitbuttons')).top),
 		blocksRight: Math.round(box(inner).right),
@@ -268,6 +294,22 @@ check('every block offers Yes / Uncertain / No',
 check('the three answers sit on one line and are small',
 	labeling.rows.every((tops) => tops === 1) && labeling.answerHeight <= 30,
 	`rows=${JSON.stringify(labeling.rows)} height=${labeling.answerHeight}`);
+check('the portal\'s own paint on the buttons is taken off',
+	labeling.paint.background === 'rgba(0, 0, 0, 0)' && labeling.paint.border === '0px'
+		&& labeling.paint.height === 28 && labeling.paint.labelHeight === 28,
+	JSON.stringify(labeling.paint));
+check('nothing spills out of the verdict grid or the panel',
+	labeling.answersBottom <= labeling.innerBottom + 1
+		&& labeling.answersBottom <= labeling.panelBottom + 1,
+	JSON.stringify({ answers: Math.round(labeling.answersBottom), inner: Math.round(labeling.innerBottom),
+		panel: labeling.panelBottom }));
+check('Proceed sits on the same line as the answers',
+	Math.abs(labeling.submitBottom - labeling.answersBottom) < 2 && labeling.submitHeight === 28,
+	JSON.stringify({ proceed: Math.round(labeling.submitBottom), answers: Math.round(labeling.answersBottom),
+		height: labeling.submitHeight }));
+check('the status line sits below the answers, not over them',
+	labeling.statusTop >= labeling.answersBottom - 1,
+	JSON.stringify({ status: Math.round(labeling.statusTop), answers: Math.round(labeling.answersBottom) }));
 check('the submit button sits beside the verdicts, not under them',
 	labeling.submitLeft >= labeling.blocksRight && Math.abs(labeling.submitTop - labeling.blocksTop) < 60,
 	JSON.stringify({ submitLeft: labeling.submitLeft, blocksRight: labeling.blocksRight }));
@@ -352,6 +394,7 @@ const submitted = await readVerdicts();
 check('the submitted confirmation is styled and does not resize the panel',
 	/Submitted/i.test(submitted.statusText)
 		&& submitted.statusState.includes('vnh-status-done')
+		&& submitted.statusTop >= submitted.answersBottom - 1
 		&& Math.abs(submitted.panelHeight - labeling.panelHeight) < 1,
 	JSON.stringify({ text: submitted.statusText, classes: submitted.statusState, height: submitted.panelHeight }));
 
