@@ -103,9 +103,57 @@ const CSS = `
 /*
  * Expert view is applied as inline !important styles (see src/ui/expert.ts),
  * because the portal's own selectors are more specific than anything we could
- * write here. Only our own toolbar needs styling from this side.
+ * write here. What is left for this side is the toolbar, plus the few things
+ * an inline style cannot express: hover states and the status line's icon.
  */
 html.vnh-expert .vnh-toolbar { margin-bottom: 6px; flex: 0 0 auto; }
+
+html.vnh-expert .verdictbutton label:hover,
+html.vnh-expert .submitbuttons button:hover {
+	filter: brightness(1.14) !important;
+}
+
+html.vnh-expert .submitbuttons button:active { filter: brightness(0.94) !important; }
+
+/*
+ * The portal writes its own status line ("Submitting...", "Labels Submitted")
+ * into the status container. Expert view keeps that element and its text as the
+ * portal made it and hangs the icon off a pseudo-element instead, so nothing we
+ * add can get in the way of the portal rewriting it.
+ */
+html.vnh-status-busy .status-text-container::before,
+html.vnh-status-done .status-text-container::before {
+	display: inline-block;
+	margin-right: 8px;
+	vertical-align: -1px;
+}
+
+html.vnh-status-busy .status-text-container::before {
+	content: '';
+	box-sizing: border-box;
+	width: 11px;
+	height: 11px;
+	border: 2px solid rgba(198, 212, 223, 0.22);
+	border-top-color: currentColor;
+	border-radius: 50%;
+	animation: vnh-spin 0.7s linear infinite;
+}
+
+html.vnh-status-done .status-text-container::before {
+	content: '✓';
+	color: #7cba62;
+	font-weight: 700;
+}
+
+html.vnh-status-busy .status-text-container { animation: vnh-status-in 0.2s ease both; }
+html.vnh-status-done .status-text-container { animation: vnh-status-pop 0.22s ease both; }
+
+@keyframes vnh-spin { to { transform: rotate(360deg); } }
+@keyframes vnh-status-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes vnh-status-pop {
+	from { opacity: 0; transform: translateY(3px); }
+	to { opacity: 1; transform: none; }
+}
 
 /* --- toast ------------------------------------------------------------- */
 .vnh-toast {

@@ -217,25 +217,128 @@ for (const size of [{ width: 1600, height: 900 }, { width: 1920, height: 1080 },
 }
 
 await page.setViewportSize({ width: 1920, height: 1080 });
-await sleep(150);
-await page.click('.submitbuttons button');
-await sleep(150);
-const confirmStage = await page.evaluate(() => {
-	const labels = [...document.querySelectorAll('.verdictbuttonslabel')];
-	const column = document.querySelector('.verdict-column');
+await sleep(200);
+
+// --- the redesigned verdict column ----------------------------------------
+const readVerdicts = () => page.evaluate(() => {
+	const blocks = [...document.querySelectorAll('.verdict-block')];
+	const box = (node) => node.getBoundingClientRect();
+	const inner = document.querySelector('.verdicts-container-inner');
+	const status = document.querySelector('#statustext');
 	return {
-		patched: labels.length === 4 && labels.every((p) => p.style.margin === '0px'),
-		blocksInRow: new Set([...document.querySelectorAll('.verdict-block')]
-			.map((b) => Math.round(b.getBoundingClientRect().top))).size === 1,
-		buttons: document.querySelectorAll('.submitbuttons button').length,
-		fits: column.getBoundingClientRect().bottom <= window.innerHeight + 1
-			&& document.documentElement.scrollHeight <= window.innerHeight + 1,
+		titles: blocks.map((b) => b.querySelector('.verdict-desc').textContent.trim()),
+		tooltips: blocks.map((b) => b.querySelector('.verdict-desc').getAttribute('title') ?? ''),
+		answers: blocks.map((b) => [...b.querySelectorAll('.verdictbutton label')].map((l) => l.textContent)),
+		chips: blocks.map((b) => (b.querySelector('.verdictbuttonsverdictlabel')?.textContent ?? '').trim()),
+		chipColors: blocks.map((b) => {
+			const chip = b.querySelector('.verdictbuttonsverdictlabel');
+			return chip ? getComputedStyle(chip).color : '';
+		}),
+		// Every answer of a block on one line, and every block the same height.
+		rows: blocks.map((b) => new Set([...b.querySelectorAll('.verdictbutton label, .verdictbuttonsverdictlabel')]
+			.map((l) => Math.round(box(l).top))).size),
+		answerHeight: Math.max(0, ...blocks.flatMap((b) => [...b.querySelectorAll('.verdictbutton label')]
+			.map((l) => Math.round(box(l).height)))),
+		checkedLabel: (() => {
+			const input = document.querySelector('input[name="aimassist"]:checked');
+			const label = input && document.querySelector(`label[for="${input.id}"]`);
+			return label ? { text: label.textContent, background: getComputedStyle(label).backgroundColor } : null;
+		})(),
+		submitLeft: Math.round(box(document.querySelector('#submitbuttons')).left),
+		submitTop: Math.round(box(document.querySelector('#submitbuttons')).top),
+		blocksRight: Math.round(box(inner).right),
+		blocksTop: Math.round(box(inner).top),
+		panelHeight: box(document.querySelector('.verdict-column')).height,
+		statusBottom: status ? Math.round(box(status).bottom) : 0,
+		panelBottom: Math.round(box(document.querySelector('.verdicts-container')).bottom),
+		statusText: status ? status.textContent.trim() : '',
+		statusState: document.documentElement.className,
 	};
 });
+
+const labeling = await readVerdicts();
+check('the questions are shortened to a title',
+	JSON.stringify(labeling.titles) === JSON.stringify(['Aim Hack', 'Wall Hack', 'BHop', 'Bot Behavior']),
+	JSON.stringify(labeling.titles));
+check('the portal\'s own question stays as a tooltip',
+	labeling.tooltips.every((q) => q.length > 20), JSON.stringify(labeling.tooltips));
+check('every block offers Yes / Uncertain / No',
+	labeling.answers.every((row) => JSON.stringify(row) === '["Yes","Uncertain","No"]'),
+	JSON.stringify(labeling.answers));
+check('the three answers sit on one line and are small',
+	labeling.rows.every((tops) => tops === 1) && labeling.answerHeight <= 30,
+	`rows=${JSON.stringify(labeling.rows)} height=${labeling.answerHeight}`);
+check('the submit button sits beside the verdicts, not under them',
+	labeling.submitLeft >= labeling.blocksRight && Math.abs(labeling.submitTop - labeling.blocksTop) < 60,
+	JSON.stringify({ submitLeft: labeling.submitLeft, blocksRight: labeling.blocksRight }));
+check('the status line has its own space at the bottom of the panel',
+	labeling.statusBottom > 0 && labeling.statusBottom <= labeling.panelBottom,
+	JSON.stringify({ status: labeling.statusBottom, panel: labeling.panelBottom }));
+
+// Picking an answer still goes through the portal's own radio buttons.
+await page.click('.verdict-block:first-child .verdictbutton.positive label');
+await sleep(150);
+const picked = await readVerdicts();
+check('clicking an answer checks the portal\'s radio and highlights it',
+	await page.evaluate(() => document.getElementById('aimassist_positive').checked)
+		&& picked.checkedLabel.text === 'Yes'
+		&& picked.checkedLabel.background === 'rgb(232, 177, 60)',
+	JSON.stringify(picked.checkedLabel));
+
+// --- Proceed: the portal replaces the buttons with the chosen answers -------
+await page.click('#submitVerdictButton');
+await sleep(200);
+const confirming = await readVerdicts();
 check('the layout survives the portal re-rendering the verdicts',
-	confirmStage.patched && confirmStage.blocksInRow && confirmStage.buttons === 2 && confirmStage.fits,
-	JSON.stringify(confirmStage));
-await page.reload();
+	confirming.rows.every((tops) => tops === 1)
+		&& (await page.evaluate(() => document.querySelectorAll('#submitbuttons button').length)) === 2
+		&& (await page.evaluate(() => document.documentElement.scrollHeight <= window.innerHeight + 1)),
+	JSON.stringify(confirming.rows));
+check('the confirm stage shows the same wording in the same colours',
+	JSON.stringify(confirming.chips) === JSON.stringify(['Yes', 'Uncertain', 'Uncertain', 'Uncertain'])
+		&& confirming.chipColors[0] === 'rgb(232, 177, 60)',
+	JSON.stringify({ chips: confirming.chips, colors: confirming.chipColors }));
+check('the panel does not resize when the portal swaps in the confirm stage',
+	Math.abs(confirming.panelHeight - labeling.panelHeight) < 1,
+	`${labeling.panelHeight} -> ${confirming.panelHeight}`);
+
+// Back returns to the buttons with the answers the portal remembered.
+await page.click('#backbutton');
+await sleep(200);
+const back = await readVerdicts();
+check('Back returns to the redesigned buttons with the answer still picked',
+	JSON.stringify(back.answers[0]) === '["Yes","Uncertain","No"]'
+		&& back.checkedLabel.text === 'Yes'
+		&& back.checkedLabel.background === 'rgb(232, 177, 60)'
+		&& Math.abs(back.panelHeight - labeling.panelHeight) < 1,
+	JSON.stringify({ answers: back.answers[0], checked: back.checkedLabel, height: back.panelHeight }));
+await page.click('#submitVerdictButton');
+await sleep(200);
+
+// --- Confirm: the portal writes its status line and posts the form ---------
+// The POST itself is stubbed out so the submitting state can be inspected; the
+// page it would land on is visited by hand below.
+await page.evaluate(() => { HTMLFormElement.prototype.submit = function () {}; });
+await page.click('#submitVerdictButton');
+await sleep(250);
+const submitting = await readVerdicts();
+check('the submitting status is styled and does not resize the panel',
+	/Submitting/i.test(submitting.statusText)
+		&& / vnh-status-busy|^vnh-status-busy/.test(' ' + submitting.statusState)
+		&& Math.abs(submitting.panelHeight - labeling.panelHeight) < 1,
+	JSON.stringify({ text: submitting.statusText, classes: submitting.statusState, height: submitting.panelHeight }));
+
+await page.goto('http://localhost:8731/vacnet?submit_success=1');
+await page.waitForSelector('.vnh-toolbar');
+await sleep(300);
+const submitted = await readVerdicts();
+check('the submitted confirmation is styled and does not resize the panel',
+	/Submitted/i.test(submitted.statusText)
+		&& submitted.statusState.includes('vnh-status-done')
+		&& Math.abs(submitted.panelHeight - labeling.panelHeight) < 1,
+	JSON.stringify({ text: submitted.statusText, classes: submitted.statusState, height: submitted.panelHeight }));
+
+await page.goto('http://localhost:8731/vacnet');
 await page.waitForSelector('.vnh-toolbar');
 await sleep(300);
 
@@ -262,12 +365,23 @@ check('E leaves expert view and restores the page',
 	restoredNormal.headerVisible && restoredNormal.infoVisible && restoredNormal.sideBySide
 		&& restoredNormal.overflow !== 'hidden',
 	JSON.stringify(restoredNormal));
+check('leaving expert view puts the portal\'s own wording back',
+	await page.evaluate(() => {
+		const desc = document.querySelector('.verdict-desc');
+		const labels = [...document.querySelectorAll('.verdict-block:first-child .verdictbutton label')]
+			.map((l) => l.textContent.replace(/\s+/g, ' ').trim());
+		return desc.textContent.length > 20 && !desc.getAttribute('title')
+			&& labels.join('|') === 'Label Aim Assist|Uncertain|Label Not Aim Assist';
+	}),
+	await page.evaluate(() => [...document.querySelectorAll('.verdict-block:first-child .verdictbutton label')]
+		.map((l) => l.textContent.replace(/\s+/g, ' ').trim()).join('|')));
 check('leaving expert view removes every inline style it added',
 	await page.evaluate(() => [
 		'.page-container', '.flex-row-wrap', '.video-column', '.videocontainer',
 		'.verdict-column', '.verdicts-container', '.verdicts-container-inner',
-		'.verdict-block', '.verdict-desc', '.verdictbuttons', '.verdictbutton label',
-		'#submitbuttons', '.PageHeader', '.footer-container', '.top-section',
+		'.verdict-block', '.verdict-desc', '.verdictbuttons', '.verdictbutton',
+		'.verdictbutton label', '.verdictbutton input', '#submitbuttons', '#submitbuttons button',
+		'#statustext', '.PageHeader', '.footer-container', '.top-section',
 	].every((selector) => [...document.querySelectorAll(selector)]
 		.every((node) => !node.getAttribute('style')))));
 

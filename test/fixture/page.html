@@ -32,6 +32,9 @@
 		background:#3b4048; border-radius:4px;
 	}
 	.submitbuttons { text-align:center; }
+	.status-text-container { text-align:center; opacity:0; transition:opacity 0.2s ease; }
+	.status-text-container.show { opacity:1; }
+	.status-text-container p { margin:8px 0 0; }
 	.PageHeader { height:38px; background:#111; }
 	.footer-container { padding:18px; text-align:center; }
 	.highlight-text { color:#d5903a; }
@@ -180,10 +183,10 @@
 						</div>
 					</div>
 				</div>
-				<div id="submitbuttons" class="submitbuttons"><button class="submitverdictbutton" onclick="SetModeConfirmLabels()">Proceed</button></div>
+				<div id="submitbuttons" class="submitbuttons"></div>
 				<div class="status-text-container" id="statustext"></div>
 			</div>
-			<form id="submitverdictform" method="POST" action="/vacnet/submit?submit_success=1">
+			<form id="submitverdictform" method="POST" action="/vacnet?submit_success=1">
 				<input type="hidden" name="verdict_task" value="1767109">
 			</form>
 		</div>
@@ -198,19 +201,98 @@
 	</div>
 </div>
 <script>
-	// Mimics the portal's second labeling stage, which rewrites the verdict
-	// buttons in place - the enhancer has to re-apply its layout afterwards.
-	function SetModeConfirmLabels() {
-		for (const key of ['aimassist', 'wallhack', 'autobhop', 'bot']) {
-			const target = document.getElementById('verdictbuttons_' + key);
-			target.classList.add('new-custom-class');
-			target.innerHTML = '<p class="verdictbuttonslabel">' + key + ' : </p>'
-				+ '<p class="verdictbuttonsverdictlabel">&nbsp;<b>Uncertain</b></p>';
+	/*
+	 * Mimics the portal's own three stages, which all rewrite the verdict column
+	 * in place: labeling -> confirming (Proceed) -> submitting. The enhancer has
+	 * to survive each swap without the page moving under the labeler.
+	 */
+	const SUBPROBLEMS = {
+		aimassist: 'Aim Assist', wallhack: 'Wall Hack', autobhop: 'Auto BHop', bot: 'Bot Player',
+	};
+	const buttonStates = {};
+
+	function ShowLabelingButtons() {
+		for (const [key, name] of Object.entries(SUBPROBLEMS)) {
+			if (!(key in buttonStates)) buttonStates[key] = 'skip';
+			document.getElementById('verdictbuttons_' + key).classList.remove('new-custom-class');
+			document.getElementById('verdictbuttons_' + key).innerHTML = `
+				<div class="verdictbutton positive">
+					<input type="radio" id="${key}_positive" name="${key}" value="positive">
+					<label for="${key}_positive">Label&nbsp<span class='highlight-text'>${name}</span></label>
+				</div>
+
+				<div class="verdictbutton skip">
+					<input type="radio" id="${key}_skip" name="${key}" value="skip">
+					<label for="${key}_skip"><b>Uncertain</b></label>
+				</div>
+
+				<div class="verdictbutton negative">
+					<input type="radio" id="${key}_negative" name="${key}" value="negative">
+					<label for="${key}_negative">Label&nbsp;<span class='highlight-text-negative'>Not</span>&nbsp;${name}</label>
+				</div>
+				`;
+			document.getElementById(key + '_' + buttonStates[key]).checked = true;
 		}
-		document.getElementById('submitbuttons').innerHTML =
-			'<button class="backbutton">Back</button>'
-			+ '<button class="submitverdictbutton">Confirm</button>';
 	}
+
+	function SetModeLabeling() {
+		ShowLabelingButtons();
+		document.getElementById('submitbuttons').innerHTML =
+			`<button class="submitverdictbutton" id="submitVerdictButton" onclick="SetModeConfirmLabels()">Proceed</button>`;
+	}
+
+	function SetModeConfirmLabels() {
+		const verdictform = document.getElementById('submitverdictform');
+		for (const input of Array.from(verdictform.children)) {
+			if (input.name === 'verdict_labels[]') verdictform.removeChild(input);
+		}
+		for (const [key, name] of Object.entries(SUBPROBLEMS)) {
+			const selected = document.querySelector('input[name="' + key + '"]:checked').value;
+			buttonStates[key] = selected;
+			let verdictString = 'INVALID';
+			let label = 'INVALID';
+			document.getElementById('verdictbuttons_' + key).classList.add('new-custom-class');
+			if (selected === 'positive') {
+				verdictString = `Label&nbsp<span class='highlight-text'>${name}</span>`;
+				label = 'guilty_' + key;
+			} else if (selected === 'skip') {
+				verdictString = '<b>Uncertain</b>';
+				label = 'skip_' + key;
+			} else {
+				verdictString = `Label&nbsp<span class='highlight-text-negative'>Not</span>&nbsp${name}`;
+				label = 'innocent_' + key;
+			}
+			document.getElementById('verdictbuttons_' + key).innerHTML = `
+				<p class="verdictbuttonslabel">${name} : </p>
+				<p class="verdictbuttonsverdictlabel">&nbsp;${verdictString}</p>
+			`;
+			const input = document.createElement('input');
+			input.type = 'hidden';
+			input.name = 'verdict_labels[]';
+			input.value = label;
+			verdictform.append(input);
+		}
+		document.getElementById('submitbuttons').innerHTML = `
+			<button class="backbutton" id="backbutton" onclick="SetModeLabeling()">Back</button>
+			<button class="submitverdictbutton" id="submitVerdictButton" onclick="SubmitLabels()">Confirm</button>
+		`;
+	}
+
+	function SubmitLabels() {
+		document.getElementById('backbutton').style.display = 'none';
+		document.getElementById('submitVerdictButton').style.display = 'none';
+		document.getElementById('statustext').innerHTML = `<p>Submitting...</p>`;
+		document.getElementById('statustext').classList.add('show');
+		document.getElementById('submitverdictform').submit();
+	}
+
+	// The page that comes back after a submit confirms it, then fades the line out.
+	if (new URLSearchParams(window.location.search).has('submit_success')) {
+		document.getElementById('statustext').innerHTML = `<p>Labels Submitted</p>`;
+		document.getElementById('statustext').classList.add('show');
+		setTimeout(() => document.getElementById('statustext').classList.remove('show'), 2000);
+	}
+	SetModeLabeling();
 </script>
 <footer class="footer-container"><p>Valve trademark blurb</p></footer>
 </body>
