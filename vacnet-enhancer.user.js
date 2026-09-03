@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        CS2 VACnet Labeling Portal Enhancer
 // @namespace   https://github.com/Mark7888/vacnet-tampermonkey
-// @version     1.0.0-edge.20260903.2013
+// @version     1.0.0-edge.20260903.2016
 // @description Full clip playback, keyboard controls, resizable panels and other usability tweaks for the CS2 VACnet video labeling portal.
 // @author      Mark7888
 // @homepageURL https://github.com/Mark7888/vacnet-tampermonkey
@@ -14,7 +14,7 @@
 // @run-at      document-start
 // @noframes
 // ==/UserScript==
-// build: edge channel, commit 4be99ba8ee3106ded2b65e0ef48bb33f305e5def, 2026-09-03T20:13:44.798Z
+// build: edge channel, commit 9a075161382d220d1a882d75381de3ae16f2b4f6, 2026-09-03T20:16:43.769Z
 
 (function () {
 'use strict';
