@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        CS2 VACnet Labeling Portal Enhancer
 // @namespace   https://github.com/Mark7888/vacnet-tampermonkey
-// @version     1.0.0-edge.20260903.1952
+// @version     1.0.0-edge.20260903.2000
 // @description Full clip playback, keyboard controls, resizable panels and other usability tweaks for the CS2 VACnet video labeling portal.
 // @author      Mark7888
 // @homepageURL https://github.com/Mark7888/vacnet-tampermonkey
@@ -14,7 +14,7 @@
 // @run-at      document-start
 // @noframes
 // ==/UserScript==
-// build: edge channel, commit 6c01e40ff77f18c702984f8f202fc18396df2ebc, 2026-09-03T19:52:03.273Z
+// build: edge channel, commit 9873cf419703902920781db7fb334fc7a589dcd9, 2026-09-03T20:00:04.930Z
 
 (function () {
 'use strict';
@@ -992,6 +992,12 @@ html.vnh-status-done .status-text-container { animation: vnh-status-pop 0.22s ea
         // the portal's stylesheet would rather it did.
         display: "grid",
         "box-sizing": "border-box",
+        // The panel around it already has a background; a second one inside
+        // only boxes the verdicts in.
+        background: "none",
+        border: "0",
+        "border-radius": "0",
+        "box-shadow": "none",
         "grid-template-columns": "repeat(auto-fit, minmax(168px, 1fr))",
         "grid-template-rows": "none",
         "grid-auto-rows": "min-content",
