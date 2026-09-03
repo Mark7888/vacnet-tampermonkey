@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        CS2 VACnet Labeling Portal Enhancer
 // @namespace   https://github.com/Mark7888/vacnet-tampermonkey
-// @version     1.0.0-edge.20260903.1607
+// @version     1.0.0-edge.20260903.1647
 // @description Full clip playback, keyboard controls, resizable panels and other usability tweaks for the CS2 VACnet video labeling portal.
 // @author      Mark7888
 // @homepageURL https://github.com/Mark7888/vacnet-tampermonkey
@@ -14,7 +14,7 @@
 // @run-at      document-start
 // @noframes
 // ==/UserScript==
-// build: edge channel, commit 1f3ce403026b3d4bd97990d6ee9744a4462cb6d9, 2026-09-03T16:07:38.465Z
+// build: edge channel, commit c5a8b5a7460962715e8574bd13f021fbc1e8a70c, 2026-09-03T16:47:29.672Z
 
 (function () {
 'use strict';
@@ -56,17 +56,17 @@
     const secs = abs - mins * 60;
     return `${sign}${mins}:${secs < 10 ? "0" : ""}${secs.toFixed(1)}`;
   }
-  async function copyText(text) {
+  async function copyText(text2) {
     try {
       if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(text);
+        await navigator.clipboard.writeText(text2);
         return true;
       }
     } catch {
     }
     try {
       const area = el("textarea", { attrs: { readonly: "readonly" } });
-      area.value = text;
+      area.value = text2;
       area.style.cssText = "position:fixed;top:-1000px;opacity:0;";
       document.body.appendChild(area);
       area.select();
@@ -95,7 +95,7 @@
   }
   function installClampHook() {
     if (hookInstalled) return;
-    const original2 = window.setInterval;
+    const original = window.setInterval;
     const patched = function(handler, timeout, ...args) {
       if (isClipWindowTimer(handler, timeout)) {
         patchedTimers += 1;
@@ -104,9 +104,9 @@
           if (suppressed) return void 0;
           return inner.apply(this, callbackArgs);
         };
-        return original2.call(window, wrapper, timeout, ...args);
+        return original.call(window, wrapper, timeout, ...args);
       }
-      return original2.call(window, handler, timeout, ...args);
+      return original.call(window, handler, timeout, ...args);
     };
     window.setInterval = patched;
     hookInstalled = true;
@@ -153,16 +153,16 @@
     const endRe = new RegExp(`endTime\\s*=\\s*${number}`);
     const eventRe = new RegExp(`eventTime\\s*=\\s*${number}`);
     for (const script of Array.from(document.querySelectorAll("script"))) {
-      const text = script.textContent;
-      if (!text || !text.includes("startTime")) continue;
-      const start = startRe.exec(text);
+      const text2 = script.textContent;
+      if (!text2 || !text2.includes("startTime")) continue;
+      const start = startRe.exec(text2);
       if (!start) continue;
       const startTime = Number(start[1]);
-      const duration = durationRe.exec(text);
-      const absoluteEnd = endRe.exec(text);
+      const duration = durationRe.exec(text2);
+      const absoluteEnd = endRe.exec(text2);
       const endTime = duration ? startTime + Number(duration[1]) : absoluteEnd ? Number(absoluteEnd[1]) : NaN;
       if (!Number.isFinite(startTime) || !Number.isFinite(endTime)) continue;
-      const event = eventRe.exec(text);
+      const event = eventRe.exec(text2);
       return {
         start: startTime,
         end: endTime,
@@ -395,8 +395,8 @@
   function getSettings() {
     return current;
   }
-  function updateSettings(patch2) {
-    current = { ...current, ...patch2 };
+  function updateSettings(patch) {
+    current = { ...current, ...patch };
     try {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(current));
     } catch {
@@ -503,9 +503,57 @@
 /*
  * Expert view is applied as inline !important styles (see src/ui/expert.ts),
  * because the portal's own selectors are more specific than anything we could
- * write here. Only our own toolbar needs styling from this side.
+ * write here. What is left for this side is the toolbar, plus the few things
+ * an inline style cannot express: hover states and the status line's icon.
  */
 html.vnh-expert .vnh-toolbar { margin-bottom: 6px; flex: 0 0 auto; }
+
+html.vnh-expert .verdictbutton label:hover,
+html.vnh-expert .submitbuttons button:hover {
+	filter: brightness(1.14) !important;
+}
+
+html.vnh-expert .submitbuttons button:active { filter: brightness(0.94) !important; }
+
+/*
+ * The portal writes its own status line ("Submitting...", "Labels Submitted")
+ * into the status container. Expert view keeps that element and its text as the
+ * portal made it and hangs the icon off a pseudo-element instead, so nothing we
+ * add can get in the way of the portal rewriting it.
+ */
+html.vnh-status-busy .status-text-container::before,
+html.vnh-status-done .status-text-container::before {
+	display: inline-block;
+	margin-right: 8px;
+	vertical-align: -1px;
+}
+
+html.vnh-status-busy .status-text-container::before {
+	content: '';
+	box-sizing: border-box;
+	width: 11px;
+	height: 11px;
+	border: 2px solid rgba(198, 212, 223, 0.22);
+	border-top-color: currentColor;
+	border-radius: 50%;
+	animation: vnh-spin 0.7s linear infinite;
+}
+
+html.vnh-status-done .status-text-container::before {
+	content: '✓';
+	color: #7cba62;
+	font-weight: 700;
+}
+
+html.vnh-status-busy .status-text-container { animation: vnh-status-in 0.2s ease both; }
+html.vnh-status-done .status-text-container { animation: vnh-status-pop 0.22s ease both; }
+
+@keyframes vnh-spin { to { transform: rotate(360deg); } }
+@keyframes vnh-status-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes vnh-status-pop {
+	from { opacity: 0; transform: translateY(3px); }
+	to { opacity: 1; transform: none; }
+}
 
 /* --- toast ------------------------------------------------------------- */
 .vnh-toast {
@@ -610,9 +658,9 @@ html.vnh-expert .vnh-toolbar { margin-bottom: 6px; flex: 0 0 auto; }
 `;
   function injectStyles() {
     if (document.getElementById("vnh-styles")) return;
-    const style = el("style", { text: CSS });
-    style.id = "vnh-styles";
-    (document.head ?? document.documentElement).appendChild(style);
+    const style2 = el("style", { text: CSS });
+    style2.id = "vnh-styles";
+    (document.head ?? document.documentElement).appendChild(style2);
   }
   function applyAccentFromPage() {
     const sample = document.querySelector(".highlight-text") ?? document.querySelector(".list-title") ?? document.querySelector(".verdictbuttonslabel");
@@ -621,6 +669,341 @@ html.vnh-expert .vnh-toolbar { margin-bottom: 6px; flex: 0 0 auto; }
     if (color && !/rgba?\(\s*0\s*,\s*0\s*,\s*0\s*(,\s*0\s*)?\)/.test(color)) {
       document.documentElement.style.setProperty("--vnh-accent", color);
     }
+  }
+
+  // src/ui/patch.ts
+  var styles = /* @__PURE__ */ new Map();
+  var markup = /* @__PURE__ */ new Map();
+  var attributes = /* @__PURE__ */ new Map();
+  function style(node2, declarations) {
+    if (!styles.has(node2)) styles.set(node2, node2.getAttribute("style") ?? "");
+    for (const [property, value] of Object.entries(declarations)) {
+      node2.style.setProperty(property, value, "important");
+    }
+  }
+  function styleAll(selector, declarations) {
+    for (const node2 of Array.from(document.querySelectorAll(selector))) {
+      style(node2, declarations);
+    }
+  }
+  function text(node2, value) {
+    if (!markup.has(node2)) markup.set(node2, node2.innerHTML);
+    if (node2.textContent !== value) node2.textContent = value;
+  }
+  function attr(node2, name, value) {
+    let saved = attributes.get(node2);
+    if (!saved) attributes.set(node2, saved = /* @__PURE__ */ new Map());
+    if (!saved.has(name)) saved.set(name, node2.getAttribute(name));
+    if (node2.getAttribute(name) !== value) node2.setAttribute(name, value);
+  }
+  function restoreAll() {
+    for (const [node2, html] of markup) node2.innerHTML = html;
+    markup.clear();
+    for (const [node2, saved] of attributes) {
+      for (const [name, value] of saved) {
+        if (value === null) node2.removeAttribute(name);
+        else node2.setAttribute(name, value);
+      }
+    }
+    attributes.clear();
+    for (const [node2, value] of styles) {
+      if (value) node2.setAttribute("style", value);
+      else node2.removeAttribute("style");
+    }
+    styles.clear();
+  }
+
+  // src/ui/verdicts.ts
+  var CHOICES = {
+    positive: { label: "Yes", solid: "#e8b13c", soft: "rgba(232, 177, 60, 0.12)", edge: "rgba(232, 177, 60, 0.45)" },
+    skip: { label: "Uncertain", solid: "#dfe7ee", soft: "rgba(223, 231, 238, 0.09)", edge: "rgba(223, 231, 238, 0.32)" },
+    negative: { label: "No", solid: "#4f9ada", soft: "rgba(79, 154, 218, 0.14)", edge: "rgba(79, 154, 218, 0.45)" }
+  };
+  var ORDER = ["positive", "skip", "negative"];
+  var TITLES = {
+    aimassist: "Aim Hack",
+    wallhack: "Wall Hack",
+    autobhop: "BHop",
+    bot: "Bot Behavior"
+  };
+  var ROW_HEIGHT = "28px";
+  var STATUS_SPACE = "22px";
+  var PRIMARY_BUTTON = {
+    "box-sizing": "border-box",
+    margin: "0",
+    padding: "7px 20px",
+    background: "var(--vnh-accent, #d5903a)",
+    border: "1px solid transparent",
+    "border-radius": "3px",
+    color: "#10151b",
+    font: "inherit",
+    "font-size": "12px",
+    "font-weight": "700",
+    "letter-spacing": "0.08em",
+    "text-transform": "uppercase",
+    cursor: "pointer",
+    transition: "filter 0.12s ease"
+  };
+  var GHOST_BUTTON = {
+    ...PRIMARY_BUTTON,
+    background: "rgba(255, 255, 255, 0.06)",
+    border: "1px solid rgba(198, 212, 223, 0.28)",
+    color: "var(--vnh-text, #c6d4df)",
+    "font-weight": "600"
+  };
+  function squash(value) {
+    return (value ?? "").replace(/\s+/g, " ").trim();
+  }
+  function groupKey(buttons) {
+    const fromId = /^verdictbuttons_(.+)$/.exec(buttons.id ?? "");
+    if (fromId) return fromId[1];
+    return buttons.querySelector('input[type="radio"]')?.getAttribute("name") ?? "";
+  }
+  function shortTitle(key, buttons) {
+    const known = TITLES[key];
+    if (known) return known;
+    const own = buttons.querySelector(".verdictbutton.positive .highlight-text") ?? buttons.querySelector(".highlight-text") ?? buttons.querySelector(".verdictbuttonslabel");
+    return squash(own?.textContent).replace(/\s*:\s*$/, "");
+  }
+  function choiceOf(button, input) {
+    const value = input?.value ?? "";
+    if (value === "positive" || value === "skip" || value === "negative") return value;
+    return ORDER.find((choice) => button.classList.contains(choice)) ?? null;
+  }
+  var confirmed = /* @__PURE__ */ new WeakMap();
+  function confirmedChoice(verdict) {
+    const known = confirmed.get(verdict);
+    if (known) return known;
+    const choice = verdict.querySelector(".highlight-text-negative") ? "negative" : verdict.querySelector(".highlight-text") ? "positive" : verdict.querySelector("b") ? "skip" : null;
+    if (choice) confirmed.set(verdict, choice);
+    return choice;
+  }
+  function answerStyle(look, checked) {
+    return {
+      display: "flex",
+      "align-items": "center",
+      "justify-content": "center",
+      "box-sizing": "border-box",
+      width: "100%",
+      height: "100%",
+      "min-height": ROW_HEIGHT,
+      margin: "0",
+      padding: "0 10px",
+      background: checked ? look.solid : look.soft,
+      border: `1px solid ${checked ? look.solid : look.edge}`,
+      "border-radius": "3px",
+      color: checked ? "#10151b" : look.solid,
+      "font-size": "12px",
+      "font-weight": checked ? "700" : "500",
+      "line-height": "1.2",
+      "letter-spacing": "0.02em",
+      "text-align": "center",
+      "white-space": "nowrap",
+      cursor: "pointer",
+      transition: "background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease"
+    };
+  }
+  function decorateAnswers(buttons) {
+    for (const button of Array.from(buttons.querySelectorAll(".verdictbutton"))) {
+      const input = button.querySelector('input[type="radio"]');
+      const choice = choiceOf(button, input);
+      if (!choice) continue;
+      const look = CHOICES[choice];
+      style(button, {
+        position: "relative",
+        // Sized by its own word, not an equal third: "Uncertain" needs more
+        // room than "Yes", and squeezing it makes the row overlap when the
+        // column gets narrow.
+        flex: "1 1 auto",
+        "min-width": "0",
+        margin: "0",
+        padding: "0"
+      });
+      if (input) {
+        style(input, {
+          position: "absolute",
+          inset: "0",
+          width: "100%",
+          height: "100%",
+          margin: "0",
+          opacity: "0",
+          "pointer-events": "none"
+        });
+      }
+      const label = button.querySelector("label");
+      if (!label) continue;
+      if (label.textContent !== look.label) attr(label, "title", squash(label.textContent));
+      text(label, look.label);
+      style(label, answerStyle(look, input?.checked === true));
+    }
+  }
+  function decorateConfirmed(buttons) {
+    const verdict = buttons.querySelector(".verdictbuttonsverdictlabel");
+    if (!verdict) return;
+    const name = buttons.querySelector(".verdictbuttonslabel");
+    if (name) style(name, { display: "none", margin: "0" });
+    const choice = confirmedChoice(verdict);
+    const look = choice ? CHOICES[choice] : CHOICES.skip;
+    if (choice && verdict.textContent !== look.label) attr(verdict, "title", squash(verdict.textContent));
+    if (choice) text(verdict, look.label);
+    style(verdict, {
+      ...answerStyle(look, false),
+      width: "auto",
+      padding: "0 16px",
+      cursor: "default",
+      "font-weight": "700"
+    });
+  }
+  function decorateBlock(block) {
+    const buttons = block.querySelector(".verdictbuttons");
+    if (!buttons) return;
+    style(block, {
+      display: "flex",
+      "flex-direction": "column",
+      gap: "6px",
+      "min-width": "0",
+      margin: "0",
+      padding: "0"
+    });
+    const desc = block.querySelector(".verdict-desc");
+    const title = shortTitle(groupKey(buttons), buttons);
+    if (desc) {
+      if (title && desc.textContent !== title) attr(desc, "title", squash(desc.textContent));
+      if (title) text(desc, title);
+      style(desc, {
+        display: "block",
+        overflow: "hidden",
+        margin: "0",
+        color: "var(--vnh-text, #c6d4df)",
+        "font-size": "11px",
+        "font-weight": "700",
+        "letter-spacing": "0.09em",
+        "line-height": "1.3",
+        "text-align": "center",
+        "text-transform": "uppercase",
+        "text-overflow": "ellipsis",
+        "white-space": "nowrap"
+      });
+    }
+    style(buttons, {
+      display: "flex",
+      "flex-wrap": "nowrap",
+      "justify-content": "center",
+      "align-items": "stretch",
+      gap: "4px",
+      height: ROW_HEIGHT,
+      "min-height": ROW_HEIGHT,
+      margin: "0",
+      padding: "0"
+    });
+    decorateAnswers(buttons);
+    decorateConfirmed(buttons);
+  }
+  function statusState(status) {
+    const said = squash(status.textContent);
+    if (!said) return null;
+    if (/\.\.\.|…|submitting|please wait/i.test(said)) return "busy";
+    if (/submitted|success|thank/i.test(said)) return "done";
+    return "plain";
+  }
+  function decorateSubmit() {
+    const container = document.querySelector(".verdicts-container");
+    const inner = document.querySelector(".verdicts-container-inner");
+    const submit = document.querySelector("#submitbuttons, .submitbuttons");
+    const status = document.querySelector("#statustext, .status-text-container");
+    if (container) {
+      style(container, {
+        position: "relative",
+        "box-sizing": "border-box",
+        display: "flex",
+        "flex-wrap": "wrap",
+        "align-items": "center",
+        gap: "10px 22px",
+        width: "100%",
+        height: "auto",
+        "min-height": "0",
+        "max-height": "none",
+        margin: "0",
+        // Room at the bottom for the status line, which is taken out of the
+        // flow below so the panel keeps its size when the portal fills it in.
+        padding: `14px 22px calc(12px + ${STATUS_SPACE})`
+      });
+    }
+    if (inner) {
+      style(inner, {
+        display: "grid",
+        "grid-template-columns": "repeat(auto-fit, minmax(150px, 1fr))",
+        "align-items": "start",
+        flex: "1 1 380px",
+        gap: "10px 20px",
+        width: "auto",
+        height: "auto",
+        "min-width": "0",
+        "min-height": "0",
+        margin: "0",
+        padding: "0"
+      });
+    }
+    if (submit) {
+      style(submit, {
+        display: "flex",
+        "flex-wrap": "nowrap",
+        "justify-content": "center",
+        "align-items": "center",
+        flex: "0 0 auto",
+        gap: "8px",
+        // Wide enough for Back + Confirm, so Proceed alone sits in the same
+        // place and the row does not reshuffle when the portal swaps them.
+        "min-width": "196px",
+        // Stays on the right even on a panel too narrow to keep it in the row.
+        margin: "0 0 0 auto",
+        padding: "0",
+        "border-left": "1px solid rgba(198, 212, 223, 0.14)",
+        "padding-left": "22px"
+      });
+      for (const button of Array.from(submit.querySelectorAll("button"))) {
+        style(button, button.classList.contains("backbutton") ? GHOST_BUTTON : PRIMARY_BUTTON);
+      }
+    }
+    if (status) {
+      style(status, {
+        position: "absolute",
+        left: "22px",
+        right: "22px",
+        bottom: "8px",
+        height: STATUS_SPACE,
+        margin: "0",
+        padding: "0",
+        color: "var(--vnh-text-dim, #8fa0ad)",
+        "font-size": "12px",
+        "line-height": STATUS_SPACE,
+        "letter-spacing": "0.04em",
+        "text-align": "center"
+      });
+      for (const line of Array.from(status.querySelectorAll("p"))) {
+        style(line, { display: "inline", margin: "0", padding: "0", font: "inherit", color: "inherit" });
+      }
+      setStatusState(statusState(status));
+    } else {
+      setStatusState(null);
+    }
+  }
+  var shown = null;
+  function setStatusState(state) {
+    if (state === shown) return;
+    shown = state;
+    const classes = document.documentElement.classList;
+    classes.toggle("vnh-status-busy", state === "busy");
+    classes.toggle("vnh-status-done", state === "done");
+  }
+  function decorateVerdicts() {
+    for (const block of Array.from(document.querySelectorAll(".verdict-block"))) {
+      decorateBlock(block);
+    }
+    decorateSubmit();
+  }
+  function resetVerdicts() {
+    setStatusState(null);
   }
 
   // src/ui/expert.ts
@@ -703,96 +1086,20 @@ html.vnh-expert .vnh-toolbar { margin-bottom: 6px; flex: 0 0 auto; }
       padding: "0",
       "overflow-x": "hidden",
       "overflow-y": "auto"
-    }],
-    [".verdicts-container", {
-      "box-sizing": "border-box",
-      width: "100%",
-      height: "auto",
-      "min-height": "0",
-      "max-height": "none",
-      margin: "0",
-      padding: "16px 22px"
-    }],
-    [".verdicts-container-inner", {
-      display: "grid",
-      "grid-template-columns": "repeat(auto-fit, minmax(200px, 1fr))",
-      "align-items": "start",
-      gap: "10px 24px",
-      width: "100%",
-      height: "auto",
-      "min-height": "0",
-      margin: "0",
-      padding: "0"
-    }],
-    [".verdict-block", {
-      display: "flex",
-      "flex-direction": "column",
-      gap: "8px",
-      "min-width": "0",
-      margin: "0",
-      padding: "0"
-    }],
-    [".verdict-desc", {
-      display: "block",
-      margin: "0",
-      "font-size": "clamp(12px, 0.68vw, 16px)",
-      "line-height": "1.35"
-    }],
-    [".verdictbuttons", {
-      display: "flex",
-      "flex-wrap": "wrap",
-      "justify-content": "center",
-      "align-items": "center",
-      gap: "6px",
-      margin: "0",
-      padding: "0"
-    }],
-    [".verdictbutton", { margin: "0" }],
-    [".verdictbutton label", { padding: "6px 10px", "font-size": "12px" }],
-    // Second stage: the buttons are replaced by the chosen-label lines.
-    [".verdictbuttonslabel, .verdictbuttonsverdictlabel", { margin: "0" }],
-    ["#submitbuttons", {
-      display: "flex",
-      "justify-content": "center",
-      "align-items": "center",
-      gap: "10px",
-      margin: "12px 0 0",
-      padding: "0"
-    }],
-    ["#statustext", { "text-align": "center", margin: "0" }]
+    }]
   ];
-  var original = /* @__PURE__ */ new Map();
   var enabled = false;
   var roomy = null;
   var observer = null;
+  var listening = false;
   var pending = false;
-  function patch(groups) {
-    for (const group of groups) {
-      for (const [selector, styles] of group) {
-        for (const node2 of Array.from(document.querySelectorAll(selector))) {
-          if (!original.has(node2)) original.set(node2, node2.getAttribute("style") ?? "");
-          for (const [property, value] of Object.entries(styles)) {
-            node2.style.setProperty(property, value, "important");
-          }
-        }
-      }
-    }
-  }
-  function restore() {
-    for (const [node2, style] of original) {
-      if (style) node2.setAttribute("style", style);
-      else node2.removeAttribute("style");
-    }
-    original.clear();
-  }
   function apply() {
-    const groups = [CHROME];
-    if (roomy?.matches) {
-      document.documentElement.style.setProperty("overflow", "hidden", "important");
-      document.body.style.setProperty("overflow", "hidden", "important");
-      groups.push(LAYOUT);
-    }
-    patch(groups);
+    for (const [selector, styles2] of CHROME) styleAll(selector, styles2);
+    if (!roomy?.matches) return;
+    document.documentElement.style.setProperty("overflow", "hidden", "important");
+    document.body.style.setProperty("overflow", "hidden", "important");
+    for (const [selector, styles2] of LAYOUT) styleAll(selector, styles2);
+    decorateVerdicts();
   }
   function scheduleRefresh() {
     if (!enabled || pending) return;
@@ -803,7 +1110,8 @@ html.vnh-expert .vnh-toolbar { margin-bottom: 6px; flex: 0 0 auto; }
     });
   }
   function refresh() {
-    restore();
+    restoreAll();
+    resetVerdicts();
     document.documentElement.style.removeProperty("overflow");
     document.body.style.removeProperty("overflow");
     if (enabled) apply();
@@ -816,10 +1124,14 @@ html.vnh-expert .vnh-toolbar { margin-bottom: 6px; flex: 0 0 auto; }
       roomy = window.matchMedia(ROOMY);
       roomy.addEventListener("change", refresh);
     }
-    if (!observer) {
+    const root = document.querySelector(".page-container");
+    if (!observer && root) {
       observer = new MutationObserver(scheduleRefresh);
-      const root = document.querySelector(".page-container");
-      if (root) observer.observe(root, { childList: true, subtree: true });
+      observer.observe(root, { childList: true, subtree: true, characterData: true });
+    }
+    if (!listening && root) {
+      root.addEventListener("change", scheduleRefresh);
+      listening = true;
     }
     refresh();
   }
