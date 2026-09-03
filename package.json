@@ -1,0 +1,19 @@
+{
+  "name": "vacnet-tampermonkey",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Usability improvements for the CS2 VACnet video labeling portal",
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "watch": "node scripts/build.mjs --watch",
+    "typecheck": "tsc --noEmit",
+    "check": "npm run typecheck && npm run build",
+    "test": "node test/e2e.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.9",
+    "playwright": "^1.62.1",
+    "typescript": "^5.9.2"
+  }
+}
