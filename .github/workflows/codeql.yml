@@ -24,7 +24,7 @@ jobs:
       security-events: write  # upload the results to the Security tab
       actions: read           # codeql-action reads the workflow run it is part of
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
 

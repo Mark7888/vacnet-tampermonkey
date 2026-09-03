@@ -29,13 +29,13 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           # Keeps the job's token out of .git/config, so a compromised
           # dependency lifecycle script cannot pick it up and push with it.
           persist-credentials: false
 
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -54,7 +54,7 @@ jobs:
       - name: Audit dependencies
         run: npm audit --audit-level=high
 
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v7
         with:
           name: vacnet-enhancer-userscript
           path: |
@@ -69,11 +69,11 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
 
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -93,7 +93,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
 
@@ -101,6 +101,6 @@ jobs:
       # high-severity advisory. Needs the dependency graph, which is on by
       # default for public repositories -- this job fails with "not supported on
       # this repository" if the repository is ever made private again.
-      - uses: actions/dependency-review-action@v4
+      - uses: actions/dependency-review-action@v5
         with:
           fail-on-severity: high
