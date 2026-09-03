@@ -28,7 +28,8 @@ function build(): HTMLDivElement {
 			<div class="vnh-modal-body">
 				<table class="vnh-keys">${buildRows()}</table>
 				<p class="vnh-note">
-					Shortcuts are ignored while you are typing in a text field.
+					Shortcuts follow the keys your layout prints, not their US positions.
+					They are ignored while you are typing in a text field.
 					Seeking is limited to the labeled clip window unless
 					<b>View full context</b> is enabled.
 				</p>

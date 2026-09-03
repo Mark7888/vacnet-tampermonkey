@@ -12,7 +12,7 @@ Written in TypeScript, bundled into a single `.user.js` file with esbuild.
 | --- | --- |
 | **View full context** | The portal pins the player inside a ~10 second window. Tick the checkbox and the whole recording plays and scrubs freely; untick it and the original window is back. |
 | **Copy clip link** | Copies the portal link for the current task. Shift-click (or shift + <kbd>Y</kbd>) copies the direct `.webm` URL instead. |
-| **Expert view** | Hides the page header, the footer, the "Please watch the clip with audio…" block and the portal logo, then gives the player 80% of the screen width with the verdicts in one clean row underneath. Nothing scrolls: the verdict row takes the height it needs and the player fills the rest. Click again (or press <kbd>E</kbd>) to get the normal page back. |
+| **Expert view** | Hides the page header, the footer, the "Please watch the clip with audio…" block and the portal logo, then gives the player 80% of the screen width with the verdicts in one clean row underneath. Nothing scrolls: the verdict row shrinks to the height it actually needs and the player takes everything else. Click again (or press <kbd>E</kbd>) to get the normal page back. |
 | **Keyboard control** | Play/pause, frame stepping, seeking, speed and volume without touching the mouse — see below. |
 | **Clip readout** | Shows your position inside the clip window, how long the window is, where the flagged event sits, and the current speed. |
 
@@ -58,6 +58,10 @@ Press <kbd>?</kbd> on the page for the same list.
 context** is on. Shortcuts are ignored while you type in a text field, so the
 portal's own controls keep working.
 
+Shortcuts follow the key your layout actually prints, not its position on a US
+keyboard: on a Hungarian layout <kbd>0</kbd> is the key left of <kbd>1</kbd> and
+the <kbd>ö</kbd> next to <kbd>9</kbd> stays out of the way.
+
 ## Install
 
 1. Install [Tampermonkey](https://www.tampermonkey.net/).
@@ -102,12 +106,17 @@ the `@version`).
 * `src/player.ts` — reads the clip start/end/event timestamps back out of the
   portal's inline script, and talks to the underlying `<video>` element so it
   works with or without video.js.
-* `src/ui/` — toolbar, expert view, shortcut modal and toasts. Expert view is
-  pure CSS (`html.vnh-expert` in `src/styles.ts`), so the portal's own layout is
-  left completely untouched while it is off, and the stacked layout only kicks in
-  from 1100x620 upwards — below that expert view just clears the page furniture.
-  Accent colours are sampled from the page at runtime, so the additions follow
-  the site's own palette.
+* `src/ui/expert.ts` — expert view. The portal's stylesheet uses selectors more
+  specific than any userscript selector can be (and a few `!important` rules), so
+  the layout is applied as inline `!important` declarations on the dozen elements
+  that matter, which win regardless of specificity. Every touched element's
+  original `style` attribute is stored and put back on the way out, so the portal
+  layout is bit-for-bit untouched while expert view is off. A `MutationObserver`
+  re-applies it after the portal rewrites the verdict buttons (the Proceed /
+  Back stages). The stacked layout only kicks in from 1100x620 upwards — below
+  that expert view just clears the page furniture.
+* `src/ui/` — toolbar, shortcut modal and toasts. Accent colours are sampled from
+  the page at runtime, so the additions follow the site's own palette.
 * `test/` — a fixture that reproduces the portal's markup (with a simulated media
   element) plus an end-to-end suite that drives the built userscript in Chromium.
 

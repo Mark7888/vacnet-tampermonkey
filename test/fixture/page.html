@@ -13,11 +13,24 @@
 	.video-js { width:100%; height:auto; background:#000; display:block; }
 	.video-js video { width:100%; display:block; }
 	.top-section-logo { height:60px; background:#2a475e; }
-	.verdicts-container { background:#22262c; border-radius:6px; padding:14px; }
-	.verdict-block { margin-bottom:18px; }
-	.verdict-desc { display:block; margin-bottom:8px; }
-	.verdictbuttons { display:flex; gap:8px; }
-	.verdictbutton label { display:block; padding:8px 14px; background:#3b4048; border-radius:4px; }
+	/*
+	 * These mirror how the portal's own stylesheet constrains the layout: rules
+	 * that are more specific than any plain userscript selector, some of them
+	 * !important. The enhancer has to win against them in expert view.
+	 */
+	.page-container .flex-row-wrap .video-column { max-width:900px !important; }
+	.page-container .flex-row-wrap .verdict-column.size-for-column { height:100% !important; }
+	.verdict-column .verdicts-container {
+		background:#22262c; border-radius:6px; padding:14px;
+		height:100%; min-height:420px; box-sizing:border-box;
+	}
+	.verdicts-container .verdict-block { margin-bottom:18px; }
+	.verdicts-container .verdict-desc { display:block; margin-bottom:8px; }
+	.verdicts-container .verdictbuttons { display:flex; gap:8px; }
+	.verdicts-container .verdictbutton label {
+		display:block; padding:10px 18px !important; font-size:14px !important;
+		background:#3b4048; border-radius:4px;
+	}
 	.submitbuttons { text-align:center; }
 	.PageHeader { height:38px; background:#111; }
 	.footer-container { padding:18px; text-align:center; }
@@ -167,7 +180,7 @@
 						</div>
 					</div>
 				</div>
-				<div id="submitbuttons" class="submitbuttons"><button class="submitverdictbutton">Proceed</button></div>
+				<div id="submitbuttons" class="submitbuttons"><button class="submitverdictbutton" onclick="SetModeConfirmLabels()">Proceed</button></div>
 				<div class="status-text-container" id="statustext"></div>
 			</div>
 			<form id="submitverdictform" method="POST" action="/vacnet/submit?submit_success=1">
@@ -184,6 +197,21 @@
 		</td></tr></table>
 	</div>
 </div>
+<script>
+	// Mimics the portal's second labeling stage, which rewrites the verdict
+	// buttons in place - the enhancer has to re-apply its layout afterwards.
+	function SetModeConfirmLabels() {
+		for (const key of ['aimassist', 'wallhack', 'autobhop', 'bot']) {
+			const target = document.getElementById('verdictbuttons_' + key);
+			target.classList.add('new-custom-class');
+			target.innerHTML = '<p class="verdictbuttonslabel">' + key + ' : </p>'
+				+ '<p class="verdictbuttonsverdictlabel">&nbsp;<b>Uncertain</b></p>';
+		}
+		document.getElementById('submitbuttons').innerHTML =
+			'<button class="backbutton">Back</button>'
+			+ '<button class="submitverdictbutton">Confirm</button>';
+	}
+</script>
 <footer class="footer-container"><p>Valve trademark blurb</p></footer>
 </body>
 </html>

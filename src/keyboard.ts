@@ -92,6 +92,19 @@ function shouldIgnore(event: KeyboardEvent): boolean {
 	return false;
 }
 
+/**
+ * Shortcuts follow the key the user's layout actually prints, not the physical
+ * key position: on a Hungarian keyboard the key right of 9 types "ö", and the
+ * one that types "0" sits where a US layout has the backtick. `event.code`
+ * would fire the wrong action for both, so it is only consulted for keys that
+ * produce no character at all.
+ */
+function normalizeKey(event: KeyboardEvent): string {
+	if (event.key === ' ' || event.code === 'Space') return 'space';
+	if (event.key.length === 1) return event.key.toLowerCase();
+	return event.key.toLowerCase();
+}
+
 export function installKeyboard(actions: KeyboardActions): void {
 	// Widen video.js' speed menu so the UI agrees with the keyboard shortcuts.
 	try {
@@ -101,12 +114,13 @@ export function installKeyboard(actions: KeyboardActions): void {
 	}
 
 	window.addEventListener('keydown', (event) => {
-		if (event.key === 'Escape' && actions.closeHelp()) {
+		const key = normalizeKey(event);
+		if (key === 'escape' && actions.closeHelp()) {
 			event.preventDefault();
 			return;
 		}
 		// toggles should not machine-gun when a key is held down
-		if (event.repeat && (event.key === 'c' || event.key === 'e')) return;
+		if (event.repeat && (key === 'c' || key === 'e')) return;
 		if (shouldIgnore(event)) return;
 
 		const media = getMedia();
@@ -114,82 +128,83 @@ export function installKeyboard(actions: KeyboardActions): void {
 		const step = event.shiftKey ? 5 : event.altKey ? 0.1 : 1;
 		let handled = true;
 
-		switch (event.code) {
-			case 'Space':
-			case 'KeyK':
+		switch (key) {
+			case 'space':
+			case 'k':
 				if (media.paused) void media.play();
 				else media.pause();
 				break;
-			case 'ArrowRight':
+			case 'arrowright':
 				seekBy(media, step);
 				break;
-			case 'ArrowLeft':
+			case 'arrowleft':
 				seekBy(media, -step);
 				break;
-			case 'KeyL':
+			case 'l':
 				seekBy(media, 5);
 				break;
-			case 'KeyJ':
+			case 'j':
 				seekBy(media, -5);
 				break;
-			case 'Period':
+			case '.':
+			case '>':
 				stepFrame(media, 1);
 				break;
-			case 'Comma':
+			case ',':
+			case '<':
 				stepFrame(media, -1);
 				break;
-			case 'ArrowUp':
+			case 'arrowup':
 				changeVolume(media, 0.05);
 				break;
-			case 'ArrowDown':
+			case 'arrowdown':
 				changeVolume(media, -0.05);
 				break;
-			case 'KeyM':
+			case 'm':
 				media.muted = !media.muted;
 				toast(media.muted ? 'Muted' : 'Unmuted');
 				break;
-			case 'KeyF':
+			case 'f':
 				toggleFullscreen();
 				break;
-			case 'Minus':
-			case 'NumpadSubtract':
+			case '-':
+			case '_':
 				changeRate(media, -1);
 				break;
-			case 'Equal':
-			case 'NumpadAdd':
+			case '+':
+			case '=':
 				changeRate(media, 1);
 				break;
-			case 'Backspace':
+			case 'backspace':
 				media.playbackRate = 1;
 				toast('Speed 1x');
 				break;
-			case 'Home':
+			case 'home':
 				seekTo(media, activeRange(media).start);
 				break;
-			case 'End':
+			case 'end':
 				seekTo(media, activeRange(media).end);
 				break;
-			case 'KeyC':
+			case 'c':
 				actions.toggleFullContext();
 				break;
-			case 'KeyE':
+			case 'e':
 				actions.toggleExpertView();
 				break;
-			case 'KeyY':
+			case 'y':
 				actions.copyClipLink();
 				break;
-			case 'Slash':
-			case 'NumpadDivide':
+			case '/':
+			case '?':
 				actions.toggleHelp();
 				break;
 			default:
 				handled = false;
 		}
 
-		if (!handled && /^(Digit|Numpad)[0-9]$/.test(event.code)) {
-			const digit = Number(event.code.slice(-1));
+		if (!handled && key.length === 1 && key >= '0' && key <= '9') {
 			const { start, end } = activeRange(media);
-			seekTo(media, start + (end - start) * (digit / 10));
+			seekTo(media, start + (end - start) * (Number(key) / 10));
 			handled = true;
 		}
 

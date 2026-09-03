@@ -113,6 +113,28 @@ check('shortcuts ignored while typing in a text field',
 	(await page.evaluate(() => document.getElementById('video_html5_api').currentTime)) === beforeTyping);
 await page.evaluate(() => { document.getElementById('typing').remove(); document.body.focus(); });
 
+// Non-US layouts: the shortcut has to follow the printed key, not its position.
+// On a Hungarian keyboard "0" sits on the Backquote key and "ö" on Digit0.
+async function pressLayoutKey(key, code) {
+	await page.evaluate(([k, c]) => {
+		window.dispatchEvent(new KeyboardEvent('keydown', {
+			key: k, code: c, bubbles: true, cancelable: true,
+		}));
+	}, [key, code]);
+}
+await page.evaluate(() => { document.getElementById('video_html5_api').currentTime = 295; });
+await pressLayoutKey('0', 'Backquote');
+check('Hungarian layout: the key that types 0 jumps to the clip start',
+	Math.abs(await page.evaluate(() => document.getElementById('video_html5_api').currentTime) - 288.58) < 0.1);
+await page.evaluate(() => { document.getElementById('video_html5_api').currentTime = 295; });
+await pressLayoutKey('ö', 'Digit0');
+check('Hungarian layout: the ö key next to 9 is left alone',
+	Math.abs(await page.evaluate(() => document.getElementById('video_html5_api').currentTime) - 295) < 0.01);
+await pressLayoutKey('5', 'Digit5');
+check('Hungarian layout: 5 still seeks to the middle of the range',
+	Math.abs(await page.evaluate(() => document.getElementById('video_html5_api').currentTime) - 293.94) < 0.1,
+	String(await page.evaluate(() => document.getElementById('video_html5_api').currentTime)));
+
 // --- expert view -----------------------------------------------------------
 const expertButton = '.vnh-toolbar .vnh-btn:nth-of-type(2)';
 await page.click(expertButton);
@@ -129,8 +151,16 @@ async function readExpertLayout() {
 			infoVisible: getComputedStyle(document.querySelector('.top-section')).display !== 'none',
 			logoVisible: getComputedStyle(document.querySelector('.top-section-logo')).display !== 'none',
 			columnWidth: box('.video-column').width,
+			playerWidth: box('.videocontainer .video-js').width,
+			containerWidth: box('.videocontainer').width,
 			videoTop: box('.videocontainer .video-js').top,
 			videoBottom: box('.videocontainer .video-js').bottom,
+			verdictHeight: column.getBoundingClientRect().height,
+			containerPadding: getComputedStyle(document.querySelector('.verdicts-container')).padding,
+			firstBlockInset: document.querySelector('.verdict-block').getBoundingClientRect().left
+				- document.querySelector('.verdicts-container').getBoundingClientRect().left,
+			lastRowGap: column.getBoundingClientRect().bottom
+				- document.querySelector('.submitbuttons').getBoundingClientRect().bottom,
 			verdictTop: column.getBoundingClientRect().top,
 			verdictBottom: column.getBoundingClientRect().bottom,
 			hiddenInsideVerdicts: column.scrollHeight - column.clientHeight,
@@ -155,8 +185,18 @@ for (const size of [{ width: 1600, height: 900 }, { width: 1920, height: 1080 },
 	check(`${at}: header, footer and info blocks hidden`,
 		!view.headerVisible && !view.footerVisible && !view.infoVisible && !view.logoVisible);
 	check(`${at}: player is 80% of the screen width`,
-		Math.abs(view.columnWidth - view.innerWidth * 0.8) < 2,
-		`${view.columnWidth} vs ${view.innerWidth * 0.8}`);
+		Math.abs(view.columnWidth - view.innerWidth * 0.8) < 2
+			&& Math.abs(view.containerWidth - view.innerWidth * 0.8) < 2
+			&& Math.abs(view.playerWidth - view.innerWidth * 0.8) < 2,
+		`column=${view.columnWidth} container=${view.containerWidth} player=${view.playerWidth} `
+			+ `want=${view.innerWidth * 0.8}`);
+	check(`${at}: the verdict row is only as tall as it needs to be`,
+		view.verdictHeight < view.innerHeight * 0.3,
+		`${Math.round(view.verdictHeight)}px of ${view.innerHeight}px`);
+	check(`${at}: the verdict row has breathing room`,
+		parseFloat(view.containerPadding) >= 14 && view.firstBlockInset >= 16 && view.lastRowGap >= 12,
+		`padding=${view.containerPadding} inset=${Math.round(view.firstBlockInset)} `
+			+ `bottomGap=${Math.round(view.lastRowGap)}`);
 	check(`${at}: verdicts sit below the player`, view.verdictTop >= view.videoBottom - 1,
 		`verdict ${view.verdictTop} vs video bottom ${view.videoBottom}`);
 	check(`${at}: the four verdicts form a single row`,
@@ -172,9 +212,32 @@ for (const size of [{ width: 1600, height: 900 }, { width: 1920, height: 1080 },
 		`scrollHeight=${view.scrollHeight} proceed=${Math.round(view.proceedBottom)} `
 			+ `hidden=${view.hiddenInsideVerdicts} viewport=${view.innerHeight}`);
 	check(`${at}: the player takes most of the height`,
-		view.videoBottom - view.videoTop > view.innerHeight * 0.5,
+		view.videoBottom - view.videoTop > view.innerHeight * 0.65,
 		`${Math.round(view.videoBottom - view.videoTop)}px of ${view.innerHeight}px`);
 }
+
+await page.setViewportSize({ width: 1920, height: 1080 });
+await sleep(150);
+await page.click('.submitbuttons button');
+await sleep(150);
+const confirmStage = await page.evaluate(() => {
+	const labels = [...document.querySelectorAll('.verdictbuttonslabel')];
+	const column = document.querySelector('.verdict-column');
+	return {
+		patched: labels.length === 4 && labels.every((p) => p.style.margin === '0px'),
+		blocksInRow: new Set([...document.querySelectorAll('.verdict-block')]
+			.map((b) => Math.round(b.getBoundingClientRect().top))).size === 1,
+		buttons: document.querySelectorAll('.submitbuttons button').length,
+		fits: column.getBoundingClientRect().bottom <= window.innerHeight + 1
+			&& document.documentElement.scrollHeight <= window.innerHeight + 1,
+	};
+});
+check('the layout survives the portal re-rendering the verdicts',
+	confirmStage.patched && confirmStage.blocksInRow && confirmStage.buttons === 2 && confirmStage.fits,
+	JSON.stringify(confirmStage));
+await page.reload();
+await page.waitForSelector('.vnh-toolbar');
+await sleep(300);
 
 await page.setViewportSize({ width: 1600, height: 900 });
 await sleep(150);
@@ -199,6 +262,14 @@ check('E leaves expert view and restores the page',
 	restoredNormal.headerVisible && restoredNormal.infoVisible && restoredNormal.sideBySide
 		&& restoredNormal.overflow !== 'hidden',
 	JSON.stringify(restoredNormal));
+check('leaving expert view removes every inline style it added',
+	await page.evaluate(() => [
+		'.page-container', '.flex-row-wrap', '.video-column', '.videocontainer',
+		'.verdict-column', '.verdicts-container', '.verdicts-container-inner',
+		'.verdict-block', '.verdict-desc', '.verdictbuttons', '.verdictbutton label',
+		'#submitbuttons', '.PageHeader', '.footer-container', '.top-section',
+	].every((selector) => [...document.querySelectorAll(selector)]
+		.every((node) => !node.getAttribute('style')))));
 
 // --- copy link -------------------------------------------------------------
 await page.click('.vnh-toolbar .vnh-btn:nth-of-type(1)');
@@ -239,8 +310,8 @@ const normalLayout = await page.evaluate(() => {
 	};
 });
 check('the portal layout is left untouched outside expert view',
-	Math.abs(normalLayout.ratio - 0.66) < 0.01 && !normalLayout.inlineStyles
-		&& normalLayout.classes === 'flex-row-wrap',
+	!normalLayout.inlineStyles && normalLayout.classes === 'flex-row-wrap'
+		&& normalLayout.ratio > 0.3 && normalLayout.ratio < 0.75,
 	JSON.stringify(normalLayout));
 
 // --- small screens ---------------------------------------------------------
