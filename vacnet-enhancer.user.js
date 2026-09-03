@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        CS2 VACnet Labeling Portal Enhancer
 // @namespace   https://github.com/Mark7888/vacnet-tampermonkey
-// @version     1.0.0-edge.20260903.2004
+// @version     1.0.0-edge.20260903.2013
 // @description Full clip playback, keyboard controls, resizable panels and other usability tweaks for the CS2 VACnet video labeling portal.
 // @author      Mark7888
 // @homepageURL https://github.com/Mark7888/vacnet-tampermonkey
@@ -14,7 +14,7 @@
 // @run-at      document-start
 // @noframes
 // ==/UserScript==
-// build: edge channel, commit 779b4fab925e778e2200191dbd3e903f2fbb0da4, 2026-09-03T20:04:56.559Z
+// build: edge channel, commit 4be99ba8ee3106ded2b65e0ef48bb33f305e5def, 2026-09-03T20:13:44.798Z
 
 (function () {
 'use strict';
@@ -120,6 +120,36 @@
   }
   function setClampSuppressed(value) {
     suppressed = value;
+  }
+
+  // src/intro.ts
+  var CONTINUE_LINK = '.intro-page-button a[href*="/vacnet/clips"]';
+  var CLIPS_PATH = "/vacnet/clips";
+  var GUARD_KEY = "vacnetEnhancer.introSkip";
+  var GUARD_MS = 1e4;
+  function guardTripped() {
+    try {
+      const last = Number(window.sessionStorage.getItem(GUARD_KEY));
+      if (Number.isFinite(last) && last > 0 && Date.now() - last < GUARD_MS) return true;
+      window.sessionStorage.setItem(GUARD_KEY, String(Date.now()));
+    } catch {
+    }
+    return false;
+  }
+  function isIntroPage() {
+    if (document.querySelector(".videocontainer")) return false;
+    return !!document.querySelector(CONTINUE_LINK) || !!document.querySelector(".intro-text-container");
+  }
+  function skipIntroPage() {
+    const link = document.querySelector(CONTINUE_LINK);
+    const url = link?.href || new URL(CLIPS_PATH, location.href).href;
+    if (guardTripped()) {
+      log("intro page again right after skipping it - leaving it alone");
+      return false;
+    }
+    log("expert view: skipping the intro page ->", url);
+    location.replace(url);
+    return true;
   }
 
   // src/player.ts
@@ -1432,6 +1462,11 @@ html.vnh-status-done .status-text-container { animation: vnh-status-pop 0.22s ea
   loadSettings();
   setClampSuppressed(getSettings().fullContext);
   onReady(() => {
+    if (isIntroPage()) {
+      if (getSettings().expertView && skipIntroPage()) return;
+      log("intro page - nothing to do");
+      return;
+    }
     if (!document.querySelector(".videocontainer")) {
       log("no player on this page - nothing to do");
       return;
