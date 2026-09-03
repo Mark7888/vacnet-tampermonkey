@@ -51,10 +51,6 @@ jobs:
       # is not exactly what this channel is supposed to publish.
       - run: npm run verify
 
-      # actions/dependency-review-action would add licence and advisory
-      # gating on the PR diff, but it needs Advanced Security, which this
-      # private repository does not have. `npm audit` plus Dependabot cover
-      # the same advisories for the three dev-dependencies here.
       - name: Audit dependencies
         run: npm audit --audit-level=high
 
@@ -89,3 +85,22 @@ jobs:
       - run: npm run build
 
       - run: npm test
+
+  dependency-review:
+    name: Dependency review
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      # Blocks a pull request that pulls in a dependency with a known
+      # high-severity advisory. Needs the dependency graph, which is on by
+      # default for public repositories -- this job fails with "not supported on
+      # this repository" if the repository is ever made private again.
+      - uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high

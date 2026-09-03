@@ -64,12 +64,6 @@ the <kbd>ö</kbd> next to <kbd>9</kbd> stays out of the way.
 
 ## Install
 
-> **Both install links need this repository to be public.**
-> `raw.githubusercontent.com` and release asset URLs are access-controlled, and
-> Tampermonkey cannot authenticate to them, so while the repository is private
-> the links below return 404 for everyone. Either make the repository public, or
-> mirror the build to a public Gist and point the channel at that instead.
-
 Install [Tampermonkey](https://www.tampermonkey.net/) first, then pick a channel
 — opening either link shows Tampermonkey's install prompt, and it keeps that
 copy up to date from the same URL afterwards.
@@ -153,6 +147,9 @@ the "latest release" that stable installs update to.
   job with a write-capable token.
 * **`persist-credentials: false`** on every checkout that does not push, so no
   token is left sitting in `.git/config` while `npm ci` runs lifecycle scripts.
+* **The install URLs depend on the repository staying public.** Tampermonkey
+  cannot authenticate, so making the repository private again breaks both
+  channels' `@downloadURL`/`@updateURL` (and dependency review with them).
 * **No third-party actions.** Only `actions/*` and `github/codeql-action/*`.
   Dependabot keeps both those and the npm dev-dependencies current.
 * **Untrusted values never reach a shell.** Anything derived from an event is
