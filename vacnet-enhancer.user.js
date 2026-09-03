@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        CS2 VACnet Labeling Portal Enhancer
 // @namespace   https://github.com/Mark7888/vacnet-tampermonkey
-// @version     1.0.0-edge.20260903.1927
+// @version     1.0.0-edge.20260903.1952
 // @description Full clip playback, keyboard controls, resizable panels and other usability tweaks for the CS2 VACnet video labeling portal.
 // @author      Mark7888
 // @homepageURL https://github.com/Mark7888/vacnet-tampermonkey
@@ -14,7 +14,7 @@
 // @run-at      document-start
 // @noframes
 // ==/UserScript==
-// build: edge channel, commit b897c2e405518cc25395e4807cd2a622093ef9ee, 2026-09-03T19:27:42.307Z
+// build: edge channel, commit 6c01e40ff77f18c702984f8f202fc18396df2ebc, 2026-09-03T19:52:03.273Z
 
 (function () {
 'use strict';
@@ -508,6 +508,17 @@
  */
 html.vnh-expert .vnh-toolbar { margin-bottom: 6px; flex: 0 0 auto; }
 
+/*
+ * The portal decorates the verdict buttons themselves. Their fill, border and
+ * radius are overridden inline (see src/ui/verdicts.ts); a pseudo-element can
+ * only be switched off from here.
+ */
+html.vnh-expert .verdictbutton::before,
+html.vnh-expert .verdictbutton::after {
+	content: none !important;
+	display: none !important;
+}
+
 html.vnh-expert .verdictbutton label:hover,
 html.vnh-expert .submitbuttons button:hover {
 	filter: brightness(1.14) !important;
@@ -734,8 +745,12 @@ html.vnh-status-done .status-text-container { animation: vnh-status-pop 0.22s ea
   var PANEL_INSET = "22px";
   var PRIMARY_BUTTON = {
     "box-sizing": "border-box",
+    // Same height as an answer, so Proceed reads as part of that row.
+    height: ROW_HEIGHT,
+    "min-height": ROW_HEIGHT,
+    "max-height": ROW_HEIGHT,
     margin: "0",
-    padding: "7px 20px",
+    padding: "0 20px",
     background: "var(--vnh-accent, #d5903a)",
     border: "1px solid transparent",
     "border-radius": "3px",
@@ -743,6 +758,7 @@ html.vnh-status-done .status-text-container { animation: vnh-status-pop 0.22s ea
     font: "inherit",
     "font-size": "12px",
     "font-weight": "700",
+    "line-height": "26px",
     "letter-spacing": "0.08em",
     "text-transform": "uppercase",
     cursor: "pointer",
@@ -814,8 +830,18 @@ html.vnh-status-done .status-text-container { animation: vnh-status-pop 0.22s ea
       if (!choice) continue;
       const look = CHOICES[choice];
       style(button, {
+        // A bare wrapper: the portal paints the button itself (a rounded fill,
+        // and a border on the one whose radio is checked) and gives it a
+        // height of its own, which would show up around and behind our answer
+        // and push the row past the height the panel is laid out for.
         position: "relative",
         "box-sizing": "border-box",
+        display: "block",
+        background: "none",
+        border: "0",
+        "border-radius": "0",
+        "box-shadow": "none",
+        outline: "none",
         // Equal thirds, but never narrower than the word inside: "Uncertain"
         // is the widest of the three and overlaps its neighbours if the
         // column gets narrow enough to squeeze it.
@@ -823,6 +849,9 @@ html.vnh-status-done .status-text-container { animation: vnh-status-pop 0.22s ea
         "min-width": "fit-content",
         "max-width": "none",
         float: "none",
+        height: ROW_HEIGHT,
+        "min-height": ROW_HEIGHT,
+        "max-height": ROW_HEIGHT,
         margin: "0",
         padding: "0"
       });
@@ -940,7 +969,7 @@ html.vnh-status-done .status-text-container { animation: vnh-status-pop 0.22s ea
     const submit = scope.querySelector("#submitbuttons, .submitbuttons");
     const status = scope.querySelector("#statustext, .status-text-container");
     const contentTop = "14px";
-    const contentBottom = `calc(12px + ${STATUS_SPACE})`;
+    const contentBottom = `calc(16px + ${STATUS_SPACE})`;
     if (container) {
       style(container, {
         position: "relative",
@@ -993,7 +1022,8 @@ html.vnh-status-done .status-text-container { animation: vnh-status-pop 0.22s ea
         display: "flex",
         "flex-wrap": "nowrap",
         "justify-content": "center",
-        "align-items": "center",
+        // Bottom of the content area is where the answer row sits.
+        "align-items": "flex-end",
         float: "none",
         gap: "8px",
         width: SUBMIT_WIDTH,
