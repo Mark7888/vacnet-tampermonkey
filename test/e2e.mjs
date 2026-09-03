@@ -271,6 +271,23 @@ check('the three answers sit on one line and are small',
 check('the submit button sits beside the verdicts, not under them',
 	labeling.submitLeft >= labeling.blocksRight && Math.abs(labeling.submitTop - labeling.blocksTop) < 60,
 	JSON.stringify({ submitLeft: labeling.submitLeft, blocksRight: labeling.blocksRight }));
+check('the status line is a centred pill with room around its text',
+	await page.evaluate(() => {
+		const status = document.querySelector('#statustext');
+		const panel = document.querySelector('.verdicts-container');
+		const s = status.getBoundingClientRect();
+		const p = panel.getBoundingClientRect();
+		const style = getComputedStyle(status);
+		return {
+			centred: Math.abs((s.left + s.right) / 2 - (p.left + p.right) / 2) < 2,
+			padded: parseFloat(style.paddingLeft) >= 8 && parseFloat(style.paddingRight) >= 8,
+			hugsText: s.width < p.width / 2,
+		};
+	}).then((r) => r.centred && r.padded && r.hugsText),
+	JSON.stringify(await page.evaluate(() => {
+		const s = document.querySelector('#statustext').getBoundingClientRect();
+		return { left: Math.round(s.left), width: Math.round(s.width) };
+	})));
 check('the status line has its own space at the bottom of the panel',
 	labeling.statusBottom > 0 && labeling.statusBottom <= labeling.panelBottom,
 	JSON.stringify({ status: labeling.statusBottom, panel: labeling.panelBottom }));

@@ -34,7 +34,22 @@
 	.submitbuttons { text-align:center; }
 	.status-text-container { text-align:center; opacity:0; transition:opacity 0.2s ease; }
 	.status-text-container.show { opacity:1; }
-	.status-text-container p { margin:8px 0 0; }
+	/*
+	 * The portal's own rules for the verdict panel are as opinionated as the
+	 * rest of its stylesheet: they cap the inner grid, give its rows a height of
+	 * their own, centre the submit row and size the status pill to its text.
+	 * Expert view's panel has to come out the same whatever these say.
+	 */
+	.verdict-column .verdicts-container .verdicts-container-inner {
+		max-width:600px !important; margin:0 auto !important;
+		grid-auto-rows:190px !important; justify-items:center !important;
+	}
+	.verdict-column .verdicts-container .verdict-block { min-width:220px !important; }
+	.verdict-column .verdicts-container .status-text-container {
+		width:max-content !important; padding:0 !important;
+		background:#2f3742; border-radius:3px;
+	}
+	.status-text-container p { display:block; margin:8px 0 0; }
 	.PageHeader { height:38px; background:#111; }
 	.footer-container { padding:18px; text-align:center; }
 	.highlight-text { color:#d5903a; }

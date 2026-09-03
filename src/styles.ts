@@ -117,18 +117,19 @@ html.vnh-expert .submitbuttons button:active { filter: brightness(0.94) !importa
 
 /*
  * The portal writes its own status line ("Submitting...", "Labels Submitted")
- * into the status container. Expert view keeps that element and its text as the
- * portal made it and hangs the icon off a pseudo-element instead, so nothing we
- * add can get in the way of the portal rewriting it.
+ * into the status container, as a <p>. Expert view keeps that element and its
+ * text exactly as the portal made it and hangs the icon off the paragraph's
+ * ::before, so nothing we add can get in the way of the portal rewriting it -
+ * and the icon shares a line with the text whatever the paragraph's display is.
  */
-html.vnh-status-busy .status-text-container::before,
-html.vnh-status-done .status-text-container::before {
+html.vnh-status-busy .status-text-container p::before,
+html.vnh-status-done .status-text-container p::before {
 	display: inline-block;
 	margin-right: 8px;
-	vertical-align: -1px;
+	vertical-align: middle;
 }
 
-html.vnh-status-busy .status-text-container::before {
+html.vnh-status-busy .status-text-container p::before {
 	content: '';
 	box-sizing: border-box;
 	width: 11px;
@@ -139,10 +140,11 @@ html.vnh-status-busy .status-text-container::before {
 	animation: vnh-spin 0.7s linear infinite;
 }
 
-html.vnh-status-done .status-text-container::before {
+html.vnh-status-done .status-text-container p::before {
 	content: '✓';
 	color: #7cba62;
 	font-weight: 700;
+	vertical-align: baseline;
 }
 
 html.vnh-status-busy .status-text-container { animation: vnh-status-in 0.2s ease both; }

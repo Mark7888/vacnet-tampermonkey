@@ -52,6 +52,10 @@ const TITLES: Record<string, string> = {
 const ROW_HEIGHT = '28px';
 /** Space kept free at the bottom of the panel for the portal's status line. */
 const STATUS_SPACE = '22px';
+/** Width kept free on the right for the submit buttons, in every stage. */
+const SUBMIT_WIDTH = '196px';
+/** Padding between the panel's edge and its contents. */
+const PANEL_INSET = '22px';
 
 const PRIMARY_BUTTON: Declarations = {
 	'box-sizing': 'border-box',
@@ -169,11 +173,14 @@ function decorateAnswers(buttons: HTMLElement): void {
 
 		style(button, {
 			position: 'relative',
-			// Sized by its own word, not an equal third: "Uncertain" needs more
-			// room than "Yes", and squeezing it makes the row overlap when the
-			// column gets narrow.
-			flex: '1 1 auto',
-			'min-width': '0',
+			'box-sizing': 'border-box',
+			// Equal thirds, but never narrower than the word inside: "Uncertain"
+			// is the widest of the three and overlaps its neighbours if the
+			// column gets narrow enough to squeeze it.
+			flex: '1 1 0',
+			'min-width': 'fit-content',
+			'max-width': 'none',
+			float: 'none',
 			margin: '0',
 			padding: '0',
 		});
@@ -226,10 +233,18 @@ function decorateBlock(block: HTMLElement): void {
 	if (!buttons) return;
 
 	style(block, {
+		'box-sizing': 'border-box',
 		display: 'flex',
 		'flex-direction': 'column',
+		'align-self': 'start',
+		float: 'none',
 		gap: '6px',
+		width: 'auto',
 		'min-width': '0',
+		'max-width': 'none',
+		height: 'auto',
+		'min-height': '0',
+		'max-height': 'none',
 		margin: '0',
 		padding: '0',
 	});
@@ -241,8 +256,13 @@ function decorateBlock(block: HTMLElement): void {
 		if (title) text(desc, title);
 		style(desc, {
 			display: 'block',
+			float: 'none',
 			overflow: 'hidden',
+			width: 'auto',
+			'min-width': '0',
+			'max-width': 'none',
 			margin: '0',
+			padding: '0',
 			color: 'var(--vnh-text, #c6d4df)',
 			'font-size': '11px',
 			'font-weight': '700',
@@ -257,13 +277,20 @@ function decorateBlock(block: HTMLElement): void {
 
 	// One line, whichever stage the portal is in, always the same height.
 	style(buttons, {
+		position: 'static',
+		'box-sizing': 'border-box',
 		display: 'flex',
 		'flex-wrap': 'nowrap',
 		'justify-content': 'center',
 		'align-items': 'stretch',
+		float: 'none',
 		gap: '4px',
+		width: 'auto',
+		'min-width': '0',
+		'max-width': 'none',
 		height: ROW_HEIGHT,
 		'min-height': ROW_HEIGHT,
+		'max-height': ROW_HEIGHT,
 		margin: '0',
 		padding: '0',
 	});
@@ -281,43 +308,69 @@ function statusState(status: HTMLElement): Status {
 	return 'plain';
 }
 
-/** Places the Proceed / Back / Confirm buttons and the status line. */
+/**
+ * Places the Proceed / Back / Confirm buttons and the status line.
+ *
+ * The panel is laid out as a plain block with the submit buttons and the status
+ * line taken out of the flow into padding reserved for them, rather than as a
+ * flex row of the three. The portal's stylesheet has opinions about all three
+ * boxes - it caps the grid's width, sizes its rows, centres the submit row and
+ * shrinks the status line to its text - and a layout that only works while
+ * those rules happen to agree with ours is a layout that breaks on the portal
+ * and not in the fixture. Out of flow, the only thing that decides where the
+ * buttons and the status line sit is the padding we reserve for them.
+ */
 function decorateSubmit(): void {
-	const container = document.querySelector<HTMLElement>('.verdicts-container');
+	// Anchored on the grid that actually holds the verdicts, so a page with more
+	// than one of these panels cannot have us styling the wrong one.
 	const inner = document.querySelector<HTMLElement>('.verdicts-container-inner');
-	const submit = document.querySelector<HTMLElement>('#submitbuttons, .submitbuttons');
-	const status = document.querySelector<HTMLElement>('#statustext, .status-text-container');
+	const container = inner?.closest<HTMLElement>('.verdicts-container')
+		?? document.querySelector<HTMLElement>('.verdicts-container');
+	const scope: ParentNode = container ?? document;
+	const submit = scope.querySelector<HTMLElement>('#submitbuttons, .submitbuttons');
+	const status = scope.querySelector<HTMLElement>('#statustext, .status-text-container');
+
+	/** Top of the content area, and how far its bottom sits above the panel's. */
+	const contentTop = '14px';
+	const contentBottom = `calc(12px + ${STATUS_SPACE})`;
 
 	if (container) {
 		style(container, {
 			position: 'relative',
 			'box-sizing': 'border-box',
-			display: 'flex',
-			'flex-wrap': 'wrap',
-			'align-items': 'center',
-			gap: '10px 22px',
+			display: 'block',
+			float: 'none',
 			width: '100%',
+			'min-width': '0',
+			'max-width': 'none',
 			height: 'auto',
 			'min-height': '0',
 			'max-height': 'none',
 			margin: '0',
-			// Room at the bottom for the status line, which is taken out of the
-			// flow below so the panel keeps its size when the portal fills it in.
-			padding: `14px 22px calc(12px + ${STATUS_SPACE})`,
+			padding: `${contentTop} calc(${SUBMIT_WIDTH} + ${PANEL_INSET} + ${PANEL_INSET}) ${contentBottom} ${PANEL_INSET}`,
 		});
 	}
 
 	if (inner) {
 		style(inner, {
+			// A block-level grid: it fills the space the padding leaves, whatever
+			// the portal's stylesheet would rather it did.
 			display: 'grid',
-			'grid-template-columns': 'repeat(auto-fit, minmax(150px, 1fr))',
+			'box-sizing': 'border-box',
+			'grid-template-columns': 'repeat(auto-fit, minmax(168px, 1fr))',
+			'grid-template-rows': 'none',
+			'grid-auto-rows': 'min-content',
+			'align-content': 'start',
 			'align-items': 'start',
-			flex: '1 1 380px',
+			'justify-items': 'stretch',
+			float: 'none',
 			gap: '10px 20px',
 			width: 'auto',
-			height: 'auto',
 			'min-width': '0',
+			'max-width': 'none',
+			height: 'auto',
 			'min-height': '0',
+			'max-height': 'none',
 			margin: '0',
 			padding: '0',
 		});
@@ -325,20 +378,26 @@ function decorateSubmit(): void {
 
 	if (submit) {
 		style(submit, {
+			// Out of the flow, so hiding the buttons mid-submit moves nothing.
+			position: 'absolute',
+			top: contentTop,
+			bottom: contentBottom,
+			right: PANEL_INSET,
+			left: 'auto',
+			'box-sizing': 'border-box',
 			display: 'flex',
 			'flex-wrap': 'nowrap',
 			'justify-content': 'center',
 			'align-items': 'center',
-			flex: '0 0 auto',
+			float: 'none',
 			gap: '8px',
-			// Wide enough for Back + Confirm, so Proceed alone sits in the same
-			// place and the row does not reshuffle when the portal swaps them.
-			'min-width': '196px',
-			// Stays on the right even on a panel too narrow to keep it in the row.
-			margin: '0 0 0 auto',
-			padding: '0',
+			width: SUBMIT_WIDTH,
+			'min-width': '0',
+			'max-width': 'none',
+			margin: '0',
+			padding: `0 0 0 ${PANEL_INSET}`,
 			'border-left': '1px solid rgba(198, 212, 223, 0.14)',
-			'padding-left': '22px',
+			'text-align': 'center',
 		});
 		for (const button of Array.from(submit.querySelectorAll<HTMLElement>('button'))) {
 			// `display` is left alone on purpose: the portal hides both buttons
@@ -348,22 +407,41 @@ function decorateSubmit(): void {
 	}
 
 	if (status) {
+		// A pill centred under the panel. `display` is left to the portal, which
+		// fades this line in and out with a class of its own.
 		style(status, {
 			position: 'absolute',
-			left: '22px',
-			right: '22px',
+			left: '50%',
+			right: 'auto',
 			bottom: '8px',
+			transform: 'translateX(-50%)',
+			'box-sizing': 'border-box',
+			float: 'none',
+			width: 'max-content',
+			'min-width': '0',
+			'max-width': `calc(100% - ${PANEL_INSET} - ${PANEL_INSET})`,
 			height: STATUS_SPACE,
 			margin: '0',
-			padding: '0',
+			padding: '0 12px',
 			color: 'var(--vnh-text-dim, #8fa0ad)',
 			'font-size': '12px',
 			'line-height': STATUS_SPACE,
 			'letter-spacing': '0.04em',
 			'text-align': 'center',
+			'white-space': 'nowrap',
+			overflow: 'hidden',
+			'text-overflow': 'ellipsis',
 		});
 		for (const line of Array.from(status.querySelectorAll<HTMLElement>('p'))) {
-			style(line, { display: 'inline', margin: '0', padding: '0', font: 'inherit', color: 'inherit' });
+			// Inline, so the icon on its ::before shares the line with the text.
+			style(line, {
+				display: 'inline',
+				margin: '0',
+				padding: '0',
+				font: 'inherit',
+				color: 'inherit',
+				background: 'none',
+			});
 		}
 		setStatusState(statusState(status));
 	} else {
