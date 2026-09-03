@@ -1,8 +1,9 @@
 # vacnet-tampermonkey
 
 A Tampermonkey userscript that makes the **CS2 VACnet video labeling portal**
-(`counter-strike.net/vacnet`) more usable, without changing how it looks or how
-labels are submitted.
+(`counter-strike.net/vacnet`) more usable. Everything it adds is opt-in, the
+portal's own page is put back untouched when you switch it off, and labels are
+always submitted by the portal's own code.
 
 Written in TypeScript, bundled into a single `.user.js` file with esbuild.
 
@@ -12,7 +13,7 @@ Written in TypeScript, bundled into a single `.user.js` file with esbuild.
 | --- | --- |
 | **View full context** | The portal pins the player inside a ~10 second window. Tick the checkbox and the whole recording plays and scrubs freely; untick it and the original window is back. |
 | **Copy clip link** | Copies the portal link for the current task. Shift-click (or shift + <kbd>Y</kbd>) copies the direct `.webm` URL instead. |
-| **Expert view** | Hides the page header, the footer, the "Please watch the clip with audio…" block and the portal logo, then gives the player 80% of the screen width with the verdicts in one clean row underneath. Nothing scrolls: the verdict row shrinks to the height it actually needs and the player takes everything else. Click again (or press <kbd>E</kbd>) to get the normal page back. |
+| **Expert view** | Hides the page header, the footer, the "Please watch the clip with audio…" block and the portal logo, then gives the player 80% of the screen width with the verdicts in one compact row underneath. Each question shrinks to a short title over a small **Yes / Uncertain / No** switch, Proceed sits beside them, and the portal's status line ("Submitting…", "Labels Submitted") gets its own space at the bottom — so the row keeps exactly the same size through every stage and the player never jumps. Nothing scrolls. Click again (or press <kbd>E</kbd>) to get the normal page back. |
 | **Keyboard control** | Play/pause, frame stepping, seeking, speed and volume without touching the mouse — see below. |
 | **Clip readout** | Shows your position inside the clip window, how long the window is, where the flagged event sits, and the current speed. |
 
@@ -176,19 +177,28 @@ the `dist` branch from direct pushes.
 * `src/player.ts` — reads the clip start/end/event timestamps back out of the
   portal's inline script, and talks to the underlying `<video>` element so it
   works with or without video.js.
-* `src/ui/expert.ts` — expert view. The portal's stylesheet uses selectors more
-  specific than any userscript selector can be (and a few `!important` rules), so
-  the layout is applied as inline `!important` declarations on the dozen elements
-  that matter, which win regardless of specificity. Every touched element's
-  original `style` attribute is stored and put back on the way out, so the portal
-  layout is bit-for-bit untouched while expert view is off. A `MutationObserver`
-  re-applies it after the portal rewrites the verdict buttons (the Proceed /
-  Back stages). The stacked layout only kicks in from 1100x620 upwards — below
+* `src/ui/expert.ts` — expert view's page layout. The portal's stylesheet uses
+  selectors more specific than any userscript selector can be (and a few
+  `!important` rules), so the layout is applied as inline `!important`
+  declarations on the dozen elements that matter, which win regardless of
+  specificity. The stacked layout only kicks in from 1100x620 upwards — below
   that expert view just clears the page furniture.
+* `src/ui/patch.ts` — the bookkeeping behind that: every element's original
+  `style`, markup and attributes are stored the first time it is touched and put
+  back on the way out, so the portal's page is bit-for-bit untouched while
+  expert view is off.
+* `src/ui/verdicts.ts` — the verdict column: short titles, the Yes / Uncertain /
+  No switch, the submit buttons and the status line. The portal drives three
+  states through the same markup (labeling, confirming, submitting) and rewrites
+  it in place, so a `MutationObserver` re-applies the design after each swap and
+  all three states are given the same slots and heights. The portal's own
+  wording is only ever replaced — it stays reachable as a tooltip and comes back
+  when expert view is switched off.
 * `src/ui/` — toolbar, shortcut modal and toasts. Accent colours are sampled from
   the page at runtime, so the additions follow the site's own palette.
 * `test/` — a fixture that reproduces the portal's markup (with a simulated media
   element) plus an end-to-end suite that drives the built userscript in Chromium.
 
-The script never touches the verdict buttons or the submit form: labels are
-submitted exactly as the portal intends.
+The script never touches the radio buttons themselves or the submit form: expert
+view restyles and relabels what the portal shows, but every answer is still
+stored and submitted by the portal's own code, exactly as it intends.

@@ -1,22 +1,22 @@
 /**
  * Expert view: strips the page down to the player and the verdicts.
  *
- * The portal's own stylesheet is not something we can predict or out-specify
- * (several of its rules are more specific than anything a sane userscript
- * selector can be, and some are !important), so the layout is applied as inline
- * `!important` declarations on the handful of elements that matter. Inline
- * !important wins over every stylesheet rule, whatever its specificity. Each
- * element's original `style` attribute is kept so leaving expert view puts the
- * page back exactly as the portal had it.
+ * The layout is applied as inline `!important` declarations on the handful of
+ * elements that matter, because the portal's own stylesheet cannot be
+ * out-specified from a userscript - see src/ui/patch.ts, which also keeps the
+ * originals so leaving expert view puts the page back untouched. Everything
+ * below `.verdict-column` is redesigned by src/ui/verdicts.ts.
  */
+
+import { restoreAll, styleAll } from './patch';
+import type { Declarations } from './patch';
+import { decorateVerdicts, resetVerdicts } from './verdicts';
 
 /** How much of the screen the player gets. */
 const PLAYER_WIDTH = '80vw';
 
 /** Below this the stacked layout would do more harm than good. */
 const ROOMY = '(min-width: 1100px) and (min-height: 620px)';
-
-type Declarations = Record<string, string>;
 
 /** Page furniture that expert view hides at any screen size. */
 const CHROME: [selector: string, styles: Declarations][] = [
@@ -99,102 +99,23 @@ const LAYOUT: [selector: string, styles: Declarations][] = [
 		'overflow-x': 'hidden',
 		'overflow-y': 'auto',
 	}],
-	['.verdicts-container', {
-		'box-sizing': 'border-box',
-		width: '100%',
-		height: 'auto',
-		'min-height': '0',
-		'max-height': 'none',
-		margin: '0',
-		padding: '16px 22px',
-	}],
-	['.verdicts-container-inner', {
-		display: 'grid',
-		'grid-template-columns': 'repeat(auto-fit, minmax(200px, 1fr))',
-		'align-items': 'start',
-		gap: '10px 24px',
-		width: '100%',
-		height: 'auto',
-		'min-height': '0',
-		margin: '0',
-		padding: '0',
-	}],
-	['.verdict-block', {
-		display: 'flex',
-		'flex-direction': 'column',
-		gap: '8px',
-		'min-width': '0',
-		margin: '0',
-		padding: '0',
-	}],
-	['.verdict-desc', {
-		display: 'block',
-		margin: '0',
-		'font-size': 'clamp(12px, 0.68vw, 16px)',
-		'line-height': '1.35',
-	}],
-	['.verdictbuttons', {
-		display: 'flex',
-		'flex-wrap': 'wrap',
-		'justify-content': 'center',
-		'align-items': 'center',
-		gap: '6px',
-		margin: '0',
-		padding: '0',
-	}],
-	['.verdictbutton', { margin: '0' }],
-	['.verdictbutton label', { padding: '6px 10px', 'font-size': '12px' }],
-	// Second stage: the buttons are replaced by the chosen-label lines.
-	['.verdictbuttonslabel, .verdictbuttonsverdictlabel', { margin: '0' }],
-	['#submitbuttons', {
-		display: 'flex',
-		'justify-content': 'center',
-		'align-items': 'center',
-		gap: '10px',
-		margin: '12px 0 0',
-		padding: '0',
-	}],
-	['#statustext', { 'text-align': 'center', margin: '0' }],
 ];
-
-/** Original `style` attributes of everything we have touched. */
-const original = new Map<HTMLElement, string>();
 
 let enabled = false;
 let roomy: MediaQueryList | null = null;
 let observer: MutationObserver | null = null;
+let listening = false;
 let pending = false;
 
-function patch(groups: [string, Declarations][][]): void {
-	for (const group of groups) {
-		for (const [selector, styles] of group) {
-			for (const node of Array.from(document.querySelectorAll<HTMLElement>(selector))) {
-				if (!original.has(node)) original.set(node, node.getAttribute('style') ?? '');
-				for (const [property, value] of Object.entries(styles)) {
-					node.style.setProperty(property, value, 'important');
-				}
-			}
-		}
-	}
-}
-
-function restore(): void {
-	for (const [node, style] of original) {
-		if (style) node.setAttribute('style', style);
-		else node.removeAttribute('style');
-	}
-	original.clear();
-}
-
 function apply(): void {
-	const groups = [CHROME];
+	for (const [selector, styles] of CHROME) styleAll(selector, styles);
+	if (!roomy?.matches) return;
+
 	// The document element is not reachable through querySelectorAll below.
-	if (roomy?.matches) {
-		document.documentElement.style.setProperty('overflow', 'hidden', 'important');
-		document.body.style.setProperty('overflow', 'hidden', 'important');
-		groups.push(LAYOUT);
-	}
-	patch(groups);
+	document.documentElement.style.setProperty('overflow', 'hidden', 'important');
+	document.body.style.setProperty('overflow', 'hidden', 'important');
+	for (const [selector, styles] of LAYOUT) styleAll(selector, styles);
+	decorateVerdicts();
 }
 
 /** Re-applies the layout after the portal re-renders part of the verdict column. */
@@ -208,7 +129,8 @@ function scheduleRefresh(): void {
 }
 
 function refresh(): void {
-	restore();
+	restoreAll();
+	resetVerdicts();
 	document.documentElement.style.removeProperty('overflow');
 	document.body.style.removeProperty('overflow');
 	if (enabled) apply();
@@ -224,10 +146,17 @@ export function applyExpertView(value: boolean): void {
 		roomy = window.matchMedia(ROOMY);
 		roomy.addEventListener('change', refresh);
 	}
-	if (!observer) {
+	const root = document.querySelector('.page-container');
+	if (!observer && root) {
+		// The portal rewrites the verdict buttons in place (Proceed / Back) and
+		// writes its status line as text, so both kinds of change matter here.
 		observer = new MutationObserver(scheduleRefresh);
-		const root = document.querySelector('.page-container');
-		if (root) observer.observe(root, { childList: true, subtree: true });
+		observer.observe(root, { childList: true, subtree: true, characterData: true });
+	}
+	if (!listening && root) {
+		// Picking an answer changes no markup at all, only which radio is checked.
+		root.addEventListener('change', scheduleRefresh);
+		listening = true;
 	}
 
 	refresh();
