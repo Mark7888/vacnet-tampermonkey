@@ -14,6 +14,7 @@ Written in TypeScript, bundled into a single `.user.js` file with esbuild.
 | **View full context** | The portal pins the player inside a ~10 second window. Tick the checkbox and the whole recording plays and scrubs freely; untick it and the original window is back. |
 | **Copy clip link** | Copies the portal link for the current task. Shift-click (or shift + <kbd>Y</kbd>) copies the direct `.webm` URL instead. |
 | **Expert view** | Hides the page header, the footer, the "Please watch the clip with audio…" block and the portal logo, then gives the player 80% of the screen width with the verdicts in one compact row underneath. Each question shrinks to a short title over a small **Yes / Uncertain / No** switch, Proceed sits beside them, and the portal's status line ("Submitting…", "Labels Submitted") gets its own space at the bottom — so the row keeps exactly the same size through every stage and the player never jumps. Nothing scrolls. Click again (or press <kbd>E</kbd>) to get the normal page back. |
+| **Skip the welcome page** | The portal's "Got It" intro screen comes back on every visit. With expert view on, the script follows the link for you and lands straight on `/vacnet/clips`. |
 | **Keyboard control** | Play/pause, frame stepping, seeking, speed and volume without touching the mouse — see below. |
 | **Clip readout** | Shows your position inside the clip window, how long the window is, where the flagged event sits, and the current speed. |
 
@@ -183,6 +184,10 @@ the `dist` branch from direct pushes.
   declarations on the dozen elements that matter, which win regardless of
   specificity. The stacked layout only kicks in from 1100x620 upwards — below
   that expert view just clears the page furniture.
+* `src/intro.ts` — the welcome page skip. It only fires when expert view is on,
+  it follows the page's own "Got It" link (falling back to `/vacnet/clips`), and
+  a session-scoped guard makes sure a portal that bounces straight back to the
+  intro cannot turn into a redirect loop.
 * `src/ui/patch.ts` — the bookkeeping behind that: every element's original
   `style`, markup and attributes are stored the first time it is touched and put
   back on the way out, so the portal's page is bit-for-bit untouched while

@@ -6,6 +6,7 @@
  */
 
 import { installClampHook, isClampHooked, setClampSuppressed } from './clamp';
+import { isIntroPage, skipIntroPage } from './intro';
 import { installKeyboard } from './keyboard';
 import { getClipPageUrl, getClipVideoUrl } from './player';
 import { getSettings, loadSettings, updateSettings } from './settings';
@@ -21,6 +22,13 @@ loadSettings();
 setClampSuppressed(getSettings().fullContext);
 
 onReady(() => {
+	// The welcome page has no player, so this has to come before the check below.
+	if (isIntroPage()) {
+		if (getSettings().expertView && skipIntroPage()) return;
+		log('intro page - nothing to do');
+		return;
+	}
+
 	if (!document.querySelector('.videocontainer')) {
 		log('no player on this page - nothing to do');
 		return;
