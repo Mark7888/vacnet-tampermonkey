@@ -13,7 +13,9 @@ const SCRIPT = await readFile(new URL('../dist/vacnet-enhancer.user.js', import.
 
 const server = createServer(async (req, res) => {
 	const path = req.url.split('?')[0];
-	const file = path === '/vacnet' || path === '/' ? 'page.html' : path.slice(1);
+	const file = path === '/vacnet/intro' ? 'intro.html'
+		: path === '/vacnet' || path === '/vacnet/clips' || path === '/' ? 'page.html'
+		: path.slice(1);
 	try {
 		const body = await readFile(DIR + file);
 		res.writeHead(200, { 'Content-Type': file.endsWith('.js') ? 'text/javascript' : 'text/html' });
@@ -506,6 +508,39 @@ const small = await page.evaluate(() => ({
 check('small screens keep the portal layout but still lose the furniture',
 	!small.headerVisible && small.overflow !== 'hidden' && !small.stacked,
 	JSON.stringify(small));
+
+// --- intro page ------------------------------------------------------------
+// The portal shows its welcome screen on every visit; expert view follows the
+// "Got It" link on its own instead of making you click it.
+const intro = await context.newPage();
+await intro.addInitScript(SCRIPT);
+await intro.goto('http://localhost:8731/vacnet/clips');
+await intro.evaluate(() => {
+	localStorage.setItem('vacnetEnhancer.settings.v1', JSON.stringify({ fullContext: false, expertView: false }));
+	sessionStorage.clear();
+});
+
+await intro.goto('http://localhost:8731/vacnet/intro');
+await sleep(300);
+check('the intro page is left alone outside expert view',
+	new URL(intro.url()).pathname === '/vacnet/intro', intro.url());
+
+await intro.evaluate(() => {
+	localStorage.setItem('vacnetEnhancer.settings.v1', JSON.stringify({ fullContext: false, expertView: true }));
+});
+await intro.goto('http://localhost:8731/vacnet/intro');
+await intro.waitForURL('**/vacnet/clips', { timeout: 5000 }).catch(() => {});
+check('expert view skips straight to the clips',
+	new URL(intro.url()).pathname === '/vacnet/clips', intro.url());
+check('the clip page still gets the toolbar after the skip',
+	await intro.locator('.vnh-toolbar').count() === 1);
+
+// A portal that bounces back to the intro must not turn into a redirect loop.
+await intro.goto('http://localhost:8731/vacnet/intro');
+await sleep(400);
+check('a second intro page right after a skip is left alone',
+	new URL(intro.url()).pathname === '/vacnet/intro', intro.url());
+await intro.close();
 
 await browser.close();
 server.close();
