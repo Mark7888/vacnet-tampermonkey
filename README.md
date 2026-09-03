@@ -64,16 +64,33 @@ the <kbd>ö</kbd> next to <kbd>9</kbd> stays out of the way.
 
 ## Install
 
-1. Install [Tampermonkey](https://www.tampermonkey.net/).
-2. Grab `vacnet-enhancer.user.js` from the
-   [latest release](https://github.com/Mark7888/vacnet-tampermonkey/releases/latest)
-   (or from the **Build** workflow artifacts for an unreleased commit), or build
-   it yourself with the steps below.
-3. Open the file in Tampermonkey (drag it into the browser, or *Utilities →
-   Import*) and confirm the installation.
+Install [Tampermonkey](https://www.tampermonkey.net/) first, then pick a channel
+— opening either link shows Tampermonkey's install prompt, and it keeps that
+copy up to date from the same URL afterwards.
 
-Tampermonkey update checks use the release assets, so tagged releases are picked
-up automatically.
+| Channel | Install link | Updates to |
+| --- | --- | --- |
+| **Stable** | [`vacnet-enhancer.user.js`](https://github.com/Mark7888/vacnet-tampermonkey/releases/latest/download/vacnet-enhancer.user.js) | every tagged release |
+| **Edge** | [`vacnet-enhancer.user.js`](https://raw.githubusercontent.com/Mark7888/vacnet-tampermonkey/dist/vacnet-enhancer.user.js) | every commit on `master` |
+
+Stable comes from the [latest release](https://github.com/Mark7888/vacnet-tampermonkey/releases/latest),
+which also carries a `SHA256SUMS` file and a build provenance attestation:
+
+```bash
+gh attestation verify vacnet-enhancer.user.js --repo Mark7888/vacnet-tampermonkey
+```
+
+Edge is the [`dist`](https://github.com/Mark7888/vacnet-tampermonkey/tree/dist)
+branch, rebuilt from `master` on every push. Its version is stamped
+`<version>-edge.<date>.<time>`, which sorts below the matching stable release,
+so an edge install never gets quietly downgraded. raw.githubusercontent.com
+caches for a few minutes, so a fresh build can take that long to show up.
+
+The two channels share a name and namespace, so opening the other channel's link
+switches an existing install over rather than adding a second copy.
+
+You can also grab the userscript by hand from a **CI** run's artifacts, or build
+it yourself with the steps below.
 
 ## Build
 
@@ -88,13 +105,66 @@ Other scripts:
 | --- | --- |
 | `npm run watch` | Rebuild on change while developing |
 | `npm run typecheck` | `tsc --noEmit` |
-| `npm run check` | Type-check and build |
+| `npm run verify` | Check the built userscript's metadata block |
+| `npm run check` | Type-check, build and verify |
 | `npm test` | Chromium end-to-end tests (`npx playwright install chromium` first) |
 
-CI (`.github/workflows/build.yml`) type-checks, builds and runs the browser tests
-on every push and pull request, uploads the built userscript as an artifact, and
-attaches it to the GitHub release when a `v*` tag is pushed (the tag name becomes
-the `@version`).
+`scripts/build.mjs` takes `--channel=release|edge` and `--version=<version>`;
+the defaults are the release channel at the `package.json` version, which is
+what a local build gets. The channel only decides which `@downloadURL` and
+`@updateURL` land in the metadata block — the bundled code is identical.
+
+## Continuous integration
+
+| Workflow | Runs on | What it does |
+| --- | --- | --- |
+| [`ci.yml`](.github/workflows/ci.yml) | pushes to `master`, pull requests | Type-check, build, verify, `npm audit`, dependency review, browser tests |
+| [`publish-edge.yml`](.github/workflows/publish-edge.yml) | pushes to `master` | Rebuilds the `dist` branch for the edge channel |
+| [`release.yml`](.github/workflows/release.yml) | `v*` tags | Builds, attests and publishes the GitHub release |
+| [`codeql.yml`](.github/workflows/codeql.yml) | pushes, pull requests, weekly | CodeQL `security-extended` analysis |
+
+To cut a release, tag a commit and push the tag:
+
+```bash
+git tag v1.1.0 && git push origin v1.1.0
+```
+
+The tag name becomes the userscript's `@version`. A tag with a prerelease
+suffix (`v1.1.0-rc.1`) is published as a GitHub prerelease, so it never becomes
+the "latest release" that stable installs update to.
+
+### How the pipeline is hardened
+
+* **Fork pull requests can only reach `ci.yml`.** It is triggered by
+  `pull_request`, never `pull_request_target`, so a contributor's code runs with
+  a read-only token and no access to repository secrets. Nothing in that
+  workflow needs write access.
+* **Least privilege.** Every workflow starts from `permissions: {}` and each job
+  opts into the single scope it needs.
+* **Privileged jobs install nothing.** Publishing and releasing happen in
+  separate jobs that download the already-built artifact and run only Node's
+  standard library, `git` and `gh` — a compromised npm dependency never shares a
+  job with a write-capable token.
+* **`persist-credentials: false`** on every checkout that does not push, so no
+  token is left sitting in `.git/config` while `npm ci` runs lifecycle scripts.
+* **The install URLs depend on the repository staying public.** Tampermonkey
+  cannot authenticate, so making the repository private again breaks both
+  channels' `@downloadURL`/`@updateURL` (and dependency review with them).
+* **No third-party actions.** Only `actions/*` and `github/codeql-action/*`.
+  Dependabot keeps both those and the npm dev-dependencies current.
+* **Untrusted values never reach a shell.** Anything derived from an event is
+  passed through `env:` and quoted; the release tag additionally has to match
+  `v<number>.<number>...` before it is used.
+* **The published file is verified twice.** `scripts/verify.mjs` re-checks the
+  metadata block in the build job and again in the publishing job, against the
+  exact bytes about to ship. A wrong `@updateURL` would hand every installed
+  copy over to whatever lives at that address, so it is treated as a build
+  failure rather than a typo.
+
+Worth setting on the repository itself, since a workflow file cannot: require
+approval before running workflows for first-time contributors (*Settings →
+Actions → General → Fork pull request workflows*), and protect the `v*` tags and
+the `dist` branch from direct pushes.
 
 ## How it works
 

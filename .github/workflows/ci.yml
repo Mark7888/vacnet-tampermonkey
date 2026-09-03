@@ -1,0 +1,106 @@
+name: CI
+
+# `pull_request` (never `pull_request_target`) is what makes fork PRs safe: the
+# job runs the contributor's code with a read-only GITHUB_TOKEN and no access to
+# repository secrets. Nothing in this workflow needs write access, so a malicious
+# PR has nothing to steal. Everything that does need write access lives in
+# publish-edge.yml and release.yml, which fork PRs cannot trigger.
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+# Deny by default; each job opts into the one scope it needs.
+permissions: {}
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build:
+    name: Type-check, build and verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # Keeps the job's token out of .git/config, so a compromised
+          # dependency lifecycle script cannot pick it up and push with it.
+          persist-credentials: false
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci --no-audit --no-fund
+
+      - run: npm run typecheck
+
+      - run: npm run build
+
+      # Fails the build if the shipped metadata block, and in particular the
+      # @downloadURL/@updateURL Tampermonkey re-fetches on every update check,
+      # is not exactly what this channel is supposed to publish.
+      - run: npm run verify
+
+      - name: Audit dependencies
+        run: npm audit --audit-level=high
+
+      - uses: actions/upload-artifact@v5
+        with:
+          name: vacnet-enhancer-userscript
+          path: |
+            dist/vacnet-enhancer.user.js
+            dist/vacnet-enhancer.meta.js
+          if-no-files-found: error
+          retention-days: 30
+
+  test:
+    name: Browser tests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci --no-audit --no-fund
+
+      - run: npx playwright install --with-deps chromium
+
+      - run: npm run build
+
+      - run: npm test
+
+  dependency-review:
+    name: Dependency review
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      # Blocks a pull request that pulls in a dependency with a known
+      # high-severity advisory. Needs the dependency graph, which is on by
+      # default for public repositories -- this job fails with "not supported on
+      # this repository" if the repository is ever made private again.
+      - uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
