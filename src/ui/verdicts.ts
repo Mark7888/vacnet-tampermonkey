@@ -375,6 +375,12 @@ function decorateSubmit(): void {
 			// the portal's stylesheet would rather it did.
 			display: 'grid',
 			'box-sizing': 'border-box',
+			// The panel around it already has a background; a second one inside
+			// only boxes the verdicts in.
+			background: 'none',
+			border: '0',
+			'border-radius': '0',
+			'box-shadow': 'none',
 			'grid-template-columns': 'repeat(auto-fit, minmax(168px, 1fr))',
 			'grid-template-rows': 'none',
 			'grid-auto-rows': 'min-content',

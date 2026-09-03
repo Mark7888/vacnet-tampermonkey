@@ -298,6 +298,12 @@ check('the portal\'s own paint on the buttons is taken off',
 	labeling.paint.background === 'rgba(0, 0, 0, 0)' && labeling.paint.border === '0px'
 		&& labeling.paint.height === 28 && labeling.paint.labelHeight === 28,
 	JSON.stringify(labeling.paint));
+check('the grid inside the panel is not boxed in with a second background',
+	await page.evaluate(() => {
+		const style = getComputedStyle(document.querySelector('.verdicts-container-inner'));
+		return style.backgroundColor === 'rgba(0, 0, 0, 0)' && style.borderTopWidth === '0px';
+	}),
+	await page.evaluate(() => getComputedStyle(document.querySelector('.verdicts-container-inner')).backgroundColor));
 check('nothing spills out of the verdict grid or the panel',
 	labeling.answersBottom <= labeling.innerBottom + 1
 		&& labeling.answersBottom <= labeling.panelBottom + 1,
