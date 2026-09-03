@@ -1,0 +1,20 @@
+version: 2
+
+updates:
+  # Workflows are pinned to major version tags, so this is what keeps them
+  # current when an action ships a security fix.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ['*']
+
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      dev-dependencies:
+        dependency-type: development

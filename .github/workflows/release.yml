@@ -1,0 +1,184 @@
+name: Release
+
+# Only a `v*` tag or a manual dispatch reaches this workflow, and both require
+# push access to the repository -- a fork PR can never trigger it.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing tag to release, e.g. v1.2.3'
+        required: true
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: release-${{ inputs.tag || github.ref }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build:
+    name: Build the release userscript
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
+      version: ${{ steps.meta.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Resolve the release version
+        id: meta
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          tag="${INPUT_TAG:-$GITHUB_REF_NAME}"
+          # The tag becomes the userscript's @version, which decides whether
+          # installed copies update. Reject anything Tampermonkey cannot compare.
+          if [[ ! "$tag" =~ ^v[0-9]+(\.[0-9]+)*(-[0-9A-Za-z.]+)?$ ]]; then
+            echo "::error::refusing to release from \"$tag\"; expected a tag like v1.2.3"
+            exit 1
+          fi
+          version="${tag#v}"
+          declared="$(node -p 'require("./package.json").version')"
+          if [[ "$version" != "$declared" ]]; then
+            echo "::warning::tag $tag does not match package.json version $declared; releasing as $version"
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - run: npm ci --no-audit --no-fund
+
+      - run: npm run typecheck
+
+      - name: Build
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
+        run: node scripts/build.mjs --channel=release --version="$VERSION"
+
+      - name: Verify
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
+        run: node scripts/verify.mjs --channel=release --version="$VERSION"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vacnet-enhancer-release
+          path: |
+            dist/vacnet-enhancer.user.js
+            dist/vacnet-enhancer.meta.js
+          if-no-files-found: error
+
+  test:
+    name: Browser tests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci --no-audit --no-fund
+
+      - run: npx playwright install --with-deps chromium
+
+      - run: npm run build
+
+      - run: npm test
+
+  release:
+    name: Publish the GitHub release
+    needs: [build, test]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write      # create the release and upload its assets
+      id-token: write      # OIDC identity for build provenance
+      attestations: write  # record the provenance attestation
+    steps:
+      # Like the edge publish job, the privileged job installs no dependencies
+      # and runs no third-party code.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: vacnet-enhancer-release
+          path: dist
+
+      # Re-checked against the exact files about to be published, rather than
+      # trusting the build job's own verdict.
+      - name: Verify the artifact
+        env:
+          VERSION: ${{ needs.build.outputs.version }}
+        run: node scripts/verify.mjs --channel=release --version="$VERSION"
+
+      - name: Checksums
+        run: |
+          set -euo pipefail
+          cd dist
+          sha256sum vacnet-enhancer.user.js vacnet-enhancer.meta.js > SHA256SUMS
+          cat SHA256SUMS
+
+      # Lets anyone confirm the asset came from this workflow and this commit:
+      #   gh attestation verify vacnet-enhancer.user.js --repo Mark7888/vacnet-tampermonkey
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: dist/vacnet-enhancer.user.js
+
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.build.outputs.tag }}
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          set -euo pipefail
+
+          assets=(dist/vacnet-enhancer.user.js dist/vacnet-enhancer.meta.js dist/SHA256SUMS)
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "release $TAG already exists; refreshing its assets"
+            gh release upload "$TAG" "${assets[@]}" --clobber
+          else
+            # 1.2.3-rc.1 and friends ship as prereleases so they never become
+            # the "latest release" the userscript's @updateURL points at.
+            flags=(--title "$TAG" --generate-notes --verify-tag)
+            case "$VERSION" in *-*) flags+=(--prerelease);; esac
+            gh release create "$TAG" "${flags[@]}" "${assets[@]}"
+          fi
+
+          {
+            echo "### Released $TAG"
+            echo
+            echo "Install in Tampermonkey from"
+            echo "<https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/vacnet-enhancer.user.js>"
+          } >> "$GITHUB_STEP_SUMMARY"

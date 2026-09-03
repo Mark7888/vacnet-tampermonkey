@@ -1,0 +1,175 @@
+name: Publish edge build
+
+# Rebuilds the `dist` branch from master so the raw.githubusercontent.com URLs
+# always serve the newest build. Tampermonkey installs and self-updates straight
+# from there, no release needed.
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions: {}
+
+# Never cancel a publish half-way: the `dist` branch would be left holding a
+# .user.js and .meta.js from different builds.
+concurrency:
+  group: publish-edge
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build:
+    name: Build the edge userscript
+    # Forks get their own master pushes; without this they would fail here
+    # instead of quietly doing nothing.
+    if: github.repository == 'Mark7888/vacnet-tampermonkey'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci --no-audit --no-fund
+
+      - name: Derive the edge version
+        id: version
+        run: |
+          set -euo pipefail
+          # Tampermonkey only applies an update when the version increases, so
+          # this has to be monotonic. A UTC timestamp is, and unlike a run
+          # number it cannot reset. The `-edge.` suffix sorts below the plain
+          # release version, so 1.0.0-edge.* never shadows 1.0.0.
+          base="$(node -p 'require("./package.json").version')"
+          echo "version=${base}-edge.$(date -u +'%Y%m%d.%H%M')" >> "$GITHUB_OUTPUT"
+
+      - run: npm run typecheck
+
+      - name: Build
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: node scripts/build.mjs --channel=edge --version="$VERSION"
+
+      - name: Verify
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: node scripts/verify.mjs --channel=edge --version="$VERSION"
+
+      - run: npx playwright install --with-deps chromium
+
+      - run: npm test
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vacnet-enhancer-edge
+          path: |
+            dist/vacnet-enhancer.user.js
+            dist/vacnet-enhancer.meta.js
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    name: Push to the dist branch
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      # This is the only job holding a write-capable token, and it installs no
+      # dependencies and runs no third-party code -- just Node's standard
+      # library and git.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: vacnet-enhancer-edge
+          path: dist
+
+      # Re-checked here, against the files that are actually about to be
+      # published, rather than trusting the build job's own verdict.
+      - name: Verify the artifact
+        env:
+          VERSION: ${{ needs.build.outputs.version }}
+        run: node scripts/verify.mjs --channel=edge --version="$VERSION"
+
+      - name: Commit to the dist branch
+        env:
+          VERSION: ${{ needs.build.outputs.version }}
+          COMMIT: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+
+          work="$(mktemp -d)"
+          cp dist/vacnet-enhancer.user.js dist/vacnet-enhancer.meta.js "$work/"
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+
+          if git fetch --no-tags origin dist; then
+            git checkout -B dist FETCH_HEAD
+          else
+            git checkout --orphan dist
+          fi
+
+          cp "$work/vacnet-enhancer.user.js" "$work/vacnet-enhancer.meta.js" .
+          cat > README.md <<MARKDOWN
+          # dist branch
+
+          Built automatically from \`master\` by
+          [.github/workflows/publish-edge.yml](https://github.com/${GITHUB_REPOSITORY}/blob/master/.github/workflows/publish-edge.yml).
+          Do not commit here by hand -- every publish replaces the branch contents.
+
+          **Install the edge build** (updates itself from this branch):
+
+          <https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/dist/vacnet-enhancer.user.js>
+
+          For the stable build, use the
+          [latest release](https://github.com/${GITHUB_REPOSITORY}/releases/latest) instead.
+
+          | | |
+          | --- | --- |
+          | Version | \`${VERSION}\` |
+          | Built from | [\`${COMMIT}\`](https://github.com/${GITHUB_REPOSITORY}/commit/${COMMIT}) |
+          MARKDOWN
+
+          # Empty the index first, then stage the three files by name, so
+          # nothing from master can end up on the branch by accident.
+          git rm -rqf --cached --ignore-unmatch .
+          git add -f vacnet-enhancer.user.js vacnet-enhancer.meta.js README.md
+
+          if git diff --cached --quiet; then
+            echo "dist branch already up to date"
+            exit 0
+          fi
+
+          git commit -m "Publish edge build ${VERSION} from ${COMMIT}"
+          git push origin dist
+
+      - name: Summary
+        env:
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          {
+            echo "### Edge build published"
+            echo
+            echo "Version \`${VERSION}\` is now installable from:"
+            echo
+            echo "<https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/dist/vacnet-enhancer.user.js>"
+          } >> "$GITHUB_STEP_SUMMARY"
