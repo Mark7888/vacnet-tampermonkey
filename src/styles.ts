@@ -168,6 +168,49 @@ html.vnh-status-done .status-text-container { animation: vnh-status-pop 0.22s ea
 	to { opacity: 1; transform: none; }
 }
 
+/* --- video.js playback-rate menu --------------------------------------- */
+/*
+ * video.js sizes this popup for its own five default speeds: a narrow column
+ * with a 15em cap. The twelve rates the shortcuts step through (see
+ * src/keyboard.ts) overflow that, and the portal's build draws the scrollbar
+ * on top of the labels rather than beside them, which leaves the list barely
+ * readable. Give the menu room for the whole list, and keep a thin bar in its
+ * own gutter for the short players where it still has to scroll.
+ */
+.video-js .vjs-playback-rate .vjs-menu {
+	width: 8em;
+	left: 50%;
+	margin-left: -4em;
+}
+
+.video-js .vjs-playback-rate .vjs-menu .vjs-menu-content {
+	box-sizing: border-box;
+	width: 100%;
+	max-height: min(40em, 60vh);
+	padding-right: 2px;
+	overscroll-behavior: contain;
+	scrollbar-width: thin;
+	scrollbar-color: rgba(255, 255, 255, 0.45) transparent;
+}
+
+.video-js .vjs-playback-rate .vjs-menu .vjs-menu-content::-webkit-scrollbar {
+	width: 6px;
+}
+
+.video-js .vjs-playback-rate .vjs-menu .vjs-menu-content::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+.video-js .vjs-playback-rate .vjs-menu .vjs-menu-content::-webkit-scrollbar-thumb {
+	background: rgba(255, 255, 255, 0.45);
+	border-radius: 3px;
+}
+
+.video-js .vjs-playback-rate .vjs-menu .vjs-menu-item {
+	padding: 0.15em 0.6em;
+	line-height: 1.6em;
+}
+
 /* --- toast ------------------------------------------------------------- */
 .vnh-toast {
 	position: fixed;
